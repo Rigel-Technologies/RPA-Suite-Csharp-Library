@@ -1,2 +1,2 @@
-# RPA-Suite-C-Library
+# RPA-Suite-Csharp-Library
 RPA Suite C# Library
