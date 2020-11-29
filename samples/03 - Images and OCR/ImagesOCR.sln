@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.705
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImagesOCR", "ImagesOCR.csproj", "{44FF9E96-3CD7-439F-8601-A6D748714E9B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{44FF9E96-3CD7-439F-8601-A6D748714E9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44FF9E96-3CD7-439F-8601-A6D748714E9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44FF9E96-3CD7-439F-8601-A6D748714E9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44FF9E96-3CD7-439F-8601-A6D748714E9B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D1710FC0-413F-4CA3-8C10-A3CDB18A75C3}
+	EndGlobalSection
+EndGlobal
