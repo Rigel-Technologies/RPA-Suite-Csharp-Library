@@ -51,6 +51,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MiTools\MyCartes.cs" />
+    <Compile Include="MiTools\MyDateTime.cs" />
     <Compile Include="MiTools\MyObject.cs" />
     <Compile Include="MyCartesAPIBase.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
