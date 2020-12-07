@@ -100,7 +100,7 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\NotepadLib\NotepadLib.csproj">
+    <ProjectReference Include="..\..\APIs\NotepadLib\NotepadLib.csproj">
       <Project>{4c5df0d3-5892-46ee-92da-ed860cf69546}</Project>
       <Name>NotepadLib</Name>
     </ProjectReference>

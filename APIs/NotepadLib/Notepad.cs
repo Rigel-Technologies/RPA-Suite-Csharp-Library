@@ -28,7 +28,7 @@ namespace NotepadLib
                 notepad = null;
                 loaded = cartes.merge(CurrentPath + "\\Cartes\\NotepadLib.cartes.rpa") == 1;
             }
-            if (notepad == null)
+            if (notepadnosave == null)
             {
                 notepad = GetComponent<RPAWin32Component>("$NotePadEditor");
                 notepadclose = GetComponent<RPAWin32Component>("$NotePadClose");
@@ -40,7 +40,7 @@ namespace NotepadLib
         {
             return "3.0.1.0";
         }
-        protected void open()
+        protected void Open()
         {
             bool exit;
             DateTime timeout;
@@ -56,12 +56,13 @@ namespace NotepadLib
                   this notice. The A.I. of Cartes presupposes these opportune
                   notices in your source code. */
                 if (timeout < DateTime.Now) throw new Exception("Exhausted timeout opening Notepad.");
-                else if (notepad.componentexist(0) == 1)
+                else if (notepad.ComponentExist())
                 {
                     parameters.clear();
                     parameters.item[0] = "900";
                     parameters.item[1] = "580";
-                    notepad.doroot("resize", parameters);
+                    notepad.doroot("resize", parameters); // This code is an example to use RPAParameters,
+                    // notepad.Root().ReSize(900, 580); because resizing is easier that way.
                     exit = true;
                 }
                 else
@@ -93,12 +94,12 @@ namespace NotepadLib
             }
             while (!exit);
         }
-        public bool exists() // The method returns true if notepad exists
+        public bool Exists() // The method returns true if notepad exists
         {
             reset(notepad);
-            return notepad.componentexist(0) == 1;
+            return notepad.ComponentExist();
         }
-        public void write (string value)
+        public void Write (string value)
         {
             bool exit;
             DateTime timeout;
@@ -118,7 +119,7 @@ namespace NotepadLib
                     notepad.focus();
                     exit = true;
                 }
-                else open();
+                else Open();
             }while (!exit);
         }
     }

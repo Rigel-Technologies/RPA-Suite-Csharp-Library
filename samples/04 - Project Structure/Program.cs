@@ -5,8 +5,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Cartes;
-using NotepadLib;
 
 namespace Demo_Plugin_Visual_Studio
 {

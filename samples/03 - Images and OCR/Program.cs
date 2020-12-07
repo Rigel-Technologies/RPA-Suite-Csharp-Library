@@ -72,8 +72,7 @@ namespace ImagesOCR
                                                      notepadnosave.y - notepaddialog.y,
                                                      notepadnosave.width, notepadnosave.height,
                                                      imageCloseButton);
-                    parameters.item[0] = imageCloseButton;
-                    notepaddialog.clickonimage(parameters, 1);
+                    notepaddialog.ClickOnImage(true, imageCloseButton);
                 }
                 cartes.RegisterIteration(start, "ok", "<task>Put your trace here in xml for your swarm</task>", 1);
                 cartes.forensic("This is a trace for the swarm log, and the Windows event viewer.");

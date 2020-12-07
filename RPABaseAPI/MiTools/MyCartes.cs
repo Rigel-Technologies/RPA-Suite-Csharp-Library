@@ -12,6 +12,7 @@ using System.Windows.Forms;
 using System.Linq;
 using System.Windows;
 using System.Diagnostics;
+using System.Drawing;
 
 //////////////////////
 // 2020/07/17 12:36
@@ -1039,6 +1040,26 @@ namespace MiTools
         public static void TypeKey(this IRPAWin32Component component, string key)
         {
             component.TypeKey(key, "", "");
+        }
+        public static Rectangle FindPicture(this IRPAWin32Component component, params string[] ImageFiles)
+        {
+            RPAParameters parameters = new RPAParameters(), output;
+            Rectangle result = Rectangle.Empty;
+
+            for (int i = 0; i < ImageFiles.Count(); i++)
+                parameters.item[i] = ImageFiles[i];
+            output = component.FindPicture(parameters);
+            if (output.item[0] == "1")
+                result = new Rectangle(int.Parse(output.item[1]), int.Parse(output.item[2]), int.Parse(output.item[3]), int.Parse(output.item[4]));
+            return result;
+        }
+        public static void ClickOnImage(this IRPAWin32Component component, bool MoveMouse, params string[] ImageFiles)
+        {
+            RPAParameters parameters = new RPAParameters();
+
+            for (int i = 0; i < ImageFiles.Count(); i++)
+                parameters.item[i] = ImageFiles[i];
+            component.clickonimage(parameters, MoveMouse ? 1 : 0);
         }
     }
 }

@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{1F84C91F-9E88-45CC-BB34-23903A4899C6}</ProjectGuid>
+    <ProjectGuid>{653265FC-A964-4460-945C-D9ABA67B138A}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ChromeLib</RootNamespace>
-    <AssemblyName>ChromeLib</AssemblyName>
+    <RootNamespace>IExplorerLib</RootNamespace>
+    <AssemblyName>IExplorerLib</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -34,7 +34,6 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -43,8 +42,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Chrome.cs" />
+    <Compile Include="IExplorer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\RPABaseAPI\RPABaseAPI.csproj">
+      <Project>{90f0f94d-0faf-4c00-b91b-2985dc868735}</Project>
+      <Name>RPABaseAPI</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <COMReference Include="Cartes">
@@ -58,15 +63,9 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Cartes\Chrome ES.rpa">
+    <Content Include="Cartes\Internet Explorer ES.rpa">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\RPABaseAPI\RPABaseAPI.csproj">
-      <Project>{90f0f94d-0faf-4c00-b91b-2985dc868735}</Project>
-      <Name>RPABaseAPI</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
