@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace Demo_Plugin_Visual_Studio
+namespace Outlook_and_Excel
 {
     static class Program
     {
@@ -16,9 +14,9 @@ namespace Demo_Plugin_Visual_Studio
         [STAThread]
         static void Main()
         {
-            SampleNotepad sample = null;
+            SampleOutlook sample = null;
 
-            sample = new SampleNotepad();
+            sample = new SampleOutlook();
             sample.Execute();
         }
     }

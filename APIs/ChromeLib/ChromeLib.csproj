@@ -4,22 +4,14 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{4C5DF0D3-5892-46EE-92DA-ED860CF69546}</ProjectGuid>
+    <ProjectGuid>{1F84C91F-9E88-45CC-BB34-23903A4899C6}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>NotepadLib</RootNamespace>
-    <AssemblyName>NotepadLib</AssemblyName>
+    <RootNamespace>ChromeLib</RootNamespace>
+    <AssemblyName>ChromeLib</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
-    <SccProjectName>
-    </SccProjectName>
-    <SccLocalPath>
-    </SccLocalPath>
-    <SccAuxPath>
-    </SccAuxPath>
-    <SccProvider>
-    </SccProvider>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -51,7 +43,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Notepad.cs" />
+    <Compile Include="Chrome.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -66,12 +58,12 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Cartes\NotepadLib.cartes.rpa">
+    <Content Include="Cartes\Chrome ES.rpa">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\RPABaseAPI\RPABaseAPI.csproj">
+    <ProjectReference Include="..\..\RPABaseAPI\RPABaseAPI.csproj">
       <Project>{90f0f94d-0faf-4c00-b91b-2985dc868735}</Project>
       <Name>RPABaseAPI</Name>
     </ProjectReference>

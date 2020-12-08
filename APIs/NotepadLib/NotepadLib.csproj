@@ -4,14 +4,22 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{653265FC-A964-4460-945C-D9ABA67B138A}</ProjectGuid>
+    <ProjectGuid>{4C5DF0D3-5892-46EE-92DA-ED860CF69546}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>IExplorerLib</RootNamespace>
-    <AssemblyName>IExplorerLib</AssemblyName>
+    <RootNamespace>NotepadLib</RootNamespace>
+    <AssemblyName>NotepadLib</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <SccProjectName>
+    </SccProjectName>
+    <SccLocalPath>
+    </SccLocalPath>
+    <SccAuxPath>
+    </SccAuxPath>
+    <SccProvider>
+    </SccProvider>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -34,6 +42,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -42,14 +51,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="IExplorer.cs" />
+    <Compile Include="Notepad.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\RPABaseAPI\RPABaseAPI.csproj">
-      <Project>{90f0f94d-0faf-4c00-b91b-2985dc868735}</Project>
-      <Name>RPABaseAPI</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <COMReference Include="Cartes">
@@ -63,9 +66,15 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Cartes\Internet Explorer ES.rpa">
+    <Content Include="Cartes\NotepadLib.cartes.rpa">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\RPABaseAPI\RPABaseAPI.csproj">
+      <Project>{90f0f94d-0faf-4c00-b91b-2985dc868735}</Project>
+      <Name>RPABaseAPI</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

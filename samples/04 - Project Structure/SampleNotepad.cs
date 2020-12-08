@@ -34,7 +34,7 @@ namespace Demo_Plugin_Visual_Studio
         }
         protected override void LoadConfiguration(XmlDocument XmlCfg)
         {
-            fMessage = ToString(XmlCfg.SelectSingleNode("//demo/message"));
+            fMessage = ToString(XmlCfg.SelectSingleNode("//demo//message"));
         }
 
         protected override void DoExecute(ref DateTime start)
@@ -42,10 +42,10 @@ namespace Demo_Plugin_Visual_Studio
             bool exit;
             DateTime timeout;
 
-            notepad.write(fMessage.Replace("%user%", Execute("SessionUser;")));
+            notepad.Write(fMessage.Replace("%user%", Execute("SessionUser;")));
             cartes.balloon("This example shows how to use C# libraries.");
             cartes.RegisterIteration(start, "ok", "<task>Put your trace here in xml</task>", 1);
-            forensic("This is a trace for the swarm log, and the Windows event viewer.");
+            forensic("This is a trace for the swarm log and the Windows event viewer.");
             timeout = DateTime.Now.AddSeconds(60);
             exit = false;
             do
@@ -53,7 +53,7 @@ namespace Demo_Plugin_Visual_Studio
                 Thread.Sleep(500);
                 CheckAbort();
                 if (timeout < DateTime.Now) exit = true;
-                else if (!notepad.exists()) exit = true;
+                else if (!notepad.Exists()) exit = true;
             } while (!exit);
             start = DateTime.Now;
         }
