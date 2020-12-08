@@ -34,7 +34,7 @@ namespace Demo_Plugin_Visual_Studio
         }
         protected override void LoadConfiguration(XmlDocument XmlCfg)
         {
-            fMessage = ToString(XmlCfg.SelectSingleNode("//demo/message"));
+            fMessage = ToString(XmlCfg.SelectSingleNode("//demo//message"));
         }
 
         protected override void DoExecute(ref DateTime start)

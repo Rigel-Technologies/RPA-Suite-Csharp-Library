@@ -15,8 +15,7 @@ using System.Diagnostics;
 using System.Drawing;
 
 //////////////////////
-// 2020/07/17 12:36
-//    v2.2
+// 2020/12/07
 //////////////////////
 
 namespace MiTools
@@ -25,6 +24,8 @@ namespace MiTools
     {
         protected const string EXIT_ABORT = "Abort";
         protected const string EXIT_ERROR = "KO";
+        private const string EXIT_MERGE_KO = "LOADING_" + EXIT_ERROR;
+        private const string EXIT_UNMERGE_KO = "UNLOADING_" + EXIT_ERROR;
         protected const string EXIT_OK = "OK";
 
         private static Version fVersion = null;
@@ -41,11 +42,29 @@ namespace MiTools
 
         internal void Load()
         {
-            MergeLibrariesAndLoadVariables();
+            try
+            {
+                MergeLibrariesAndLoadVariables();
+            }
+            catch (Exception e)
+            {
+                forensic(ClassName + ".MergeLibrariesAndLoadVariables", e);
+                if (e is MyException pp) throw;
+                else throw new MyException(EXIT_MERGE_KO, "I cannot load the " + ClassName + " library" + LF + e.Message);
+            }
         }
         internal void UnLoad()
         {
-            UnMergeLibrariesAndUnLoadVariables();
+            try
+            {
+                UnMergeLibrariesAndUnLoadVariables();
+            }
+            catch (Exception e)
+            {
+                forensic(ClassName + ".UnMergeLibrariesAndUnLoadVariables", e);
+                if (e is MyException pp) throw;
+                else throw new MyException(EXIT_UNMERGE_KO, "I cannot unload the " + ClassName + " library" + LF + e.Message);
+            }
         }
 
         private Version getNeededRPASuiteVersionP() // It returns the version of RPA Suite needed by this library
@@ -546,11 +565,18 @@ namespace MiTools
   
         internal void AddAPI(MyCartesAPI api)
         {
-            if (apis.IndexOf(api) < 0)
+            try
             {
-                apis.Add(api);
-                if (ProjectId.Length > 0)
-                    api.Load();
+                if (apis.IndexOf(api) < 0)
+                {
+                    apis.Add(api);
+                    if (ProjectId.Length > 0)
+                        api.Load();
+                }
+            }catch(Exception e)
+            {
+                forensic("MyCartesProcess.AddAPI", e);
+                throw;
             }
         }
         internal void DeleteAPI(MyCartesAPI api)
@@ -570,7 +596,7 @@ namespace MiTools
             }catch(Exception e)
             {
                 if (e is MyException m) throw m;
-                else throw new MyException(EXIT_SETTINGS_KO, e.Message);
+                else throw new MyException(EXIT_SETTINGS_KO, "Loading settings:" + LF + e.Message);
             }
         }
  
@@ -761,7 +787,7 @@ namespace MiTools
                                     if (VisibleMode)
                                         Execute("visualmode(0);");
                                 }
-                                Balloon(Name + " is over.");
+                                Balloon("\"" + Name + "\" is over.");
                             }
                             catch (Exception e)
                             {
