@@ -15,7 +15,7 @@ using System.Diagnostics;
 using System.Drawing;
 
 //////////////////////
-// 2020/12/07
+// 2021/01/12
 //////////////////////
 
 namespace MiTools
@@ -222,9 +222,9 @@ namespace MiTools
                             else if (lsApi.Length == 0)
                                 lsApi = component.api();
                     }
-                    if (timeout < DateTime.Now) exit = true;
-                    else if (!exit)
+                    if (!exit)
                     {
+                        if (timeout < DateTime.Now) exit = true;
                         Thread.Sleep(400);
                         if (lsApi.Length > 0)
                             cartes.reset(lsApi);
@@ -233,7 +233,7 @@ namespace MiTools
             }
             catch (Exception e)
             {
-                forensic("MyCartes::ComponentsExist", e);
+                forensic("MyCartes.ComponentsExist", e);
                 throw;
             }
             return result;
@@ -970,6 +970,11 @@ namespace MiTools
                 throw;
             }
         }
+        public static void Write(this ICredentialStack credential, IRPAWin32Component component)
+        {
+            IRPAComponent lpC = component;
+            credential.Write((RPAComponent)lpC);
+        }
         public static T GetComponent<T>(this CartesObj cartesObj, string variablename) where T : class, IRPAComponent
         {
             IRPAComponent component = cartesObj.component(variablename);
@@ -1079,6 +1084,10 @@ namespace MiTools
                 result = new Rectangle(int.Parse(output.item[1]), int.Parse(output.item[2]), int.Parse(output.item[3]), int.Parse(output.item[4]));
             return result;
         }
+        public static Rectangle FindPicture(this IRPAWin32Component component, List<string> ImageFiles)
+        {
+            return component.FindPicture(ImageFiles.ToArray());
+        }
         public static void ClickOnImage(this IRPAWin32Component component, bool MoveMouse, params string[] ImageFiles)
         {
             RPAParameters parameters = new RPAParameters();
@@ -1086,6 +1095,22 @@ namespace MiTools
             for (int i = 0; i < ImageFiles.Count(); i++)
                 parameters.item[i] = ImageFiles[i];
             component.clickonimage(parameters, MoveMouse ? 1 : 0);
+        }
+        public static void ClickOnImage(this IRPAWin32Component component, bool MoveMouse, List<string> ImageFiles)
+        {
+            component.ClickOnImage(MoveMouse, ImageFiles.ToArray());
+        }
+        public static void DoubleClickOnImage(this IRPAWin32Component component, bool MoveMouse, params string[] ImageFiles)
+        {
+            RPAParameters parameters = new RPAParameters();
+
+            for (int i = 0; i < ImageFiles.Count(); i++)
+                parameters.item[i] = ImageFiles[i];
+            component.doubleclickonimage(parameters, MoveMouse ? 1 : 0);
+        }
+        public static void DoubleClickOnImage(this IRPAWin32Component component, bool MoveMouse, List<string> ImageFiles)
+        {
+            component.DoubleClickOnImage(MoveMouse, ImageFiles.ToArray());
         }
     }
 }
