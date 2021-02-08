@@ -60,6 +60,7 @@ namespace Outlook_and_Excel
                     Excel.Worksheet xlWorkSheet;
 
                     xlWorkSheet = wb.Worksheets.get_Item(1);
+                    Outlook.VisibleMode = true;
                     // I go through Excel to send all the emails
                     lbExit = false;
                     row = 2;
@@ -93,7 +94,7 @@ namespace Outlook_and_Excel
                             row++;
                         }
                         row = 1;
-                        while (row <= folder.Items.Count) // I show all emails
+                        while (row <= folder.Items.Count) // I show all the emails
                         {
                             CheckAbort();
                             Outlook.MailItem mail = folder.Items[row];
