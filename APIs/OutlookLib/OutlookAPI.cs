@@ -18,7 +18,7 @@ namespace OutlookLib
         private Outlook.NameSpace fSpace;
         private Outlook.MAPIFolder fInbox, fDeleted;
         private Thread fThStack = null;
-        private bool fPreviuos;
+        private bool fPreviuos, fVisibleMode;
         private RPAWin32Component OutlookMain = null;
         private RPAWin32Automation OutlookAllowBtnES = null;
         private RPAWin32CheckRadioButton OutlookAllowAccessES = null;
@@ -26,6 +26,7 @@ namespace OutlookLib
         public OutlookAPI(MyCartesProcess owner) : base(owner)
         {
             fPreviuos = false;
+            fVisibleMode = true;
             fOutlook = null;
             fSpace = null;
             fInbox = null;
@@ -89,6 +90,8 @@ namespace OutlookLib
                             reset(OutlookMain);
                             fPreviuos = OutlookMain.ComponentExist();
                             InitThread();
+                            if (!fPreviuos && VisibleMode)
+                                Inbox.Display();
                         }
                     }
                     finally
@@ -262,6 +265,11 @@ namespace OutlookLib
             }
         }
 
+        public bool VisibleMode
+        {
+            get { return fVisibleMode; }
+            set { fVisibleMode = value; }
+        }
         public Outlook.MAPIFolder Inbox
         {
             get { return GetInbox(); }
