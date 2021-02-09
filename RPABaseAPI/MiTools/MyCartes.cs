@@ -202,34 +202,38 @@ namespace MiTools
         {
             DateTime timeout;
             bool exit, result = false;
-            string lsApi = "";
+            List<string> lAPI = new List<string>();
 
             try
             {
-                exit = false;
-                timeout = DateTime.Now.AddSeconds(seconds);
-                do
+                if (components == null) result = true;
+                else
                 {
-                    CheckAbort();
-                    foreach(IRPAComponent component in components)
+                    exit = false;
+                    timeout = DateTime.Now.AddSeconds(seconds);
+                    do
                     {
+                        CheckAbort();
+                        foreach (IRPAComponent component in components)
+                        {
                             if (component.componentexist(0) == 1)
                             {
                                 result = true;
                                 exit = true;
                                 break;
                             }
-                            else if (lsApi.Length == 0)
-                                lsApi = component.api();
-                    }
-                    if (!exit)
-                    {
-                        if (timeout < DateTime.Now) exit = true;
-                        Thread.Sleep(400);
-                        if (lsApi.Length > 0)
-                            cartes.reset(lsApi);
-                    }
-                } while (!exit);
+                            else if (!lAPI.Contains(component.api()))
+                                lAPI.Add(component.api());
+                        }
+                        if (!exit)
+                        {
+                            if (timeout < DateTime.Now) exit = true;
+                            Thread.Sleep(400);
+                            foreach(string api in lAPI)
+                                cartes.reset(api);
+                        }
+                    } while (!exit);
+                }
             }
             catch (Exception e)
             {

@@ -102,7 +102,7 @@ namespace ChromeLib
 
         protected override void MergeLibrariesAndLoadVariables()
         {
-            if (!loaded || !isVariable("$Chrome"))
+            if (!isVariable("$Chrome"))
             {
                 loaded = cartes.merge(CurrentPath + "\\Cartes\\Chrome Es.rpa") == 1;
             }
@@ -234,10 +234,11 @@ namespace ChromeLib
         public void OpenURL(string URL, params IRPAComponent[] Components) /* It opens the indicated web page. Components must be a list of components of the page
               that indicates when the page has been loaded: for example, "$googlelogo". */
         {
-            bool spread, exit;
+            bool spread, exit, lbAdjust;
             DateTime timeout;
 
             spread = false;
+            lbAdjust = false;
             timeout = DateTime.Now.AddSeconds(120);
             exit = false;
             do
@@ -264,7 +265,7 @@ namespace ChromeLib
                                     spread = true;
                                     throw new Exception("ERROR! Your Chrome or your Windows are not in Spanish. This library learned in Spanish buttons.");
                                 }
-                                else if (ComponentsExist(0, Components))
+                                else if (lbAdjust || ((Components != null) && ComponentsExist(0, Components)))
                                 {
                                     RPAWin32Component chrome = chmURLEdit.Root();
                                     fSpanish = true;
@@ -273,7 +274,7 @@ namespace ChromeLib
                                     chrome.Move(0, 0);
                                     chrome.ReSize(985, 732);
                                     ControlTab(timeout);
-                                    exit = ComponentsExist(0, Components);
+                                    exit = lbAdjust || ComponentsExist(0, Components);
                                 }
                                 else if (chmURLEdit.ComponentExist())
                                 {
@@ -281,7 +282,8 @@ namespace ChromeLib
                                     chmURLEdit.TypeFromClipboardCheck(CheckURL(URL), 1, 0);
                                     chmURLEdit.TypeKey("Enter");
                                     Thread.Sleep(500);
-                                    ComponentsExist(30, Components);
+                                    if (Components == null) lbAdjust = true;
+                                    else ComponentsExist(30, Components);
                                 }
                                 else
                                 {
@@ -303,7 +305,9 @@ namespace ChromeLib
                             reset(chm);
                             Thread.Sleep(500);
                             Balloon("Waiting for Chrome");
-                            List<IRPAComponent> list = Components.ToList();
+                            List<IRPAComponent> list = new List<IRPAComponent>();
+                            if (Components == null) list.Add(chm);
+                            else list.AddRange(Components.ToList());
                             list.Add(chmProxy);
                             ComponentsExist(30, list.ToArray());
                         }
@@ -326,6 +330,10 @@ namespace ChromeLib
                         }
                     }
             } while (!exit);
+        }
+        public void OpenURL(string URL)
+        {
+            OpenURL(URL, null);
         }
         public void Login(string email, string password) /* The indicated user is logged into Chrome. */
         {
