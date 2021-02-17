@@ -149,7 +149,7 @@ namespace RPABaseAPI
                 {
                     if (GetApi(i) is ClassVisualStudio vs)
                     {
-                        // No hago nada
+                        // Nothing to do
                     }
                     else GetApi(i).Close();
                 }
