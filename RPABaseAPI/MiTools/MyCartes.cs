@@ -15,7 +15,7 @@ using System.Diagnostics;
 using System.Drawing;
 
 //////////////////////
-// 2021/01/26
+// 2021/03/18
 //////////////////////
 
 namespace MiTools
@@ -141,6 +141,7 @@ namespace MiTools
         {
             return ToString(Execute("Name;"));
         }
+        protected abstract bool GetIsSwarmExecution();
         protected virtual void reset(IRPAComponent component) // Reset the API of te component
         {
             cartes.reset(component.api());
@@ -170,6 +171,10 @@ namespace MiTools
                 throw new Exception(cartes.LastError());
             else if (result == null) return "";
             else return result;
+        }
+        protected virtual string CartesScriptExecute(string command)
+        {
+            return Execute(command);
         }
         protected virtual void Balloon(string message)
         {
@@ -508,6 +513,10 @@ namespace MiTools
         {
             get { return GetProjectName(); }
         }  // Read Only. Returns the Name of the loaded project in Cartes. If Cartes does not have a loaded project, it returns the empty string.
+        public bool IsSwarmExecution
+        {
+            get { return GetIsSwarmExecution(); }
+        } // Read Only. It returns true if the execution of the current process has been commanded by the swarm
         public string Abort
         {
             get { return fAbort; }
@@ -525,7 +534,7 @@ namespace MiTools
         private CartesObj fCartes;
         private List<MyCartesAPI> apis;
         private string fFileSettings;
-        private bool fShowAbort, fVisibleMode;
+        private bool fShowAbort, fVisibleMode, fExecuting;
         private RPADataString frpaAbort = null;
         protected SmtpClient fSMTP;
 
@@ -564,6 +573,7 @@ namespace MiTools
             fFileSettings = null;
             fShowAbort = true;
             fVisibleMode = true;
+            fExecuting = false;
             fSMTP = null;
         }
   
@@ -686,6 +696,19 @@ namespace MiTools
         {
             return ToString(Execute("ProjectId;"));
         }
+        protected override bool GetIsSwarmExecution()
+        {
+            bool result = false;
+
+            try
+            {
+                result = fExecuting && (Execute("IsSwarmExecution;") == "1");
+            }catch(Exception e)
+            {
+                forensic("MyCartesForensic.GetIsSwarmExecution", e);
+            }
+            return result;
+        }
         protected virtual int GetApis()
         {
             return apis.Count;
@@ -761,6 +784,7 @@ namespace MiTools
                         else cartes.open(RPAMainFile);
                         try
                         {
+                            fExecuting = true;
                             Balloon(Name);
                             try
                             {
@@ -811,7 +835,7 @@ namespace MiTools
                                     else
                                         RegisterIteration(start, mye.code, "<task>\r\n" +
                                                                         "  <data>" + e.Message + "</data>\r\n" +
-                                                                        "</task>");
+                                                                        "</task>", true);
                                 }
                                 catch (Exception e2)
                                 {
@@ -830,6 +854,7 @@ namespace MiTools
                             }
                             finally
                             {
+                                fExecuting = false;
                                 cartes.close();
                             }
                         }
@@ -942,6 +967,10 @@ namespace MiTools
         protected override string getProjectId()
         {
             return Owner.ProjectId;
+        }
+        protected override bool GetIsSwarmExecution()
+        {
+            return Owner.IsSwarmExecution;
         }
 
         public override double ToDouble(string value)
