@@ -32,11 +32,9 @@ namespace MiTools
         private Version flVersion = null;
         private NumberFormatInfo fDoubleFormatProvider = null;
         private KeyValuePair<DateTime, string> fLastBalloon = new KeyValuePair<DateTime, string>(DateTime.Now, string.Empty);
-        private string fAbort; // Cartes Script Variable for know when the process musts abort
 
-        public MyCartes(string csvAbort) // "Owner" is Cartes. "csvAbort" is a Cartes variable that when valid one will indicate to the instance that it must abort.
+        public MyCartes()
         {
-            fAbort = ToString(csvAbort).Trim();
             flVersion = null;
         }
 
@@ -98,6 +96,7 @@ namespace MiTools
             return result;
         }
 
+        protected abstract Mutex GetRC();
         protected abstract CartesObj getCartes();
         protected abstract string getCartesPath();  // It returns the file of Cartes
         protected abstract void MergeLibrariesAndLoadVariables();  // Rewrite this method to load the libraries and Cartesa variables that your class handles.
@@ -197,11 +196,8 @@ namespace MiTools
         {
             forensic(message + "\r\n" + e.Message);
         }
-        protected virtual void CheckAbort() // It checks if the variable to abort is 1 to throw an exception
-        {
-            if ((Abort.Length > 0) && (cartes.Execute(Abort + ".value;") == "1"))
-                throw new MyException(EXIT_ABORT, "Abort by user.");
-        }
+        protected abstract void CheckAbort(); // If abort is requested, the method should throw an exception.
+        protected abstract bool GetIsAborting(); // The method returns true if abort has been requested
         protected virtual bool ComponentsExist(int seconds, params IRPAComponent[] components) /* The method waits for the indicated
               seconds until one of the components exists. If any of the components exist, returns true. */
         {
@@ -482,6 +478,10 @@ namespace MiTools
             return Convert.ToDouble(value, getDoubleFormatProvider());
         }
 
+        public Mutex CR // An instance of Mutex to control the critical regions in competition.
+        {
+            get { return GetRC(); }
+        }
         public bool IsRPASuiteInstalled
         {
             get { return GetIsRPASuiteInstalled(); }
@@ -517,10 +517,10 @@ namespace MiTools
         {
             get { return GetIsSwarmExecution(); }
         } // Read Only. It returns true if the execution of the current process has been commanded by the swarm
-        public string Abort
+        public bool IsAborting // Read. The method returns true if abort has been requested
         {
-            get { return fAbort; }
-        }  // Read Only
+            get { return GetIsAborting(); }
+        }
         public NumberFormatInfo DoubleFormatProvider
         {
             get { return getDoubleFormatProvider(); }
@@ -531,7 +531,9 @@ namespace MiTools
     {
         protected const string EXIT_SETTINGS_KO = "Settings_" + EXIT_ERROR;
         private static string fCartesPath = null;
-        private CartesObj fCartes;
+        private static Mutex fRC = new Mutex();
+        private static CartesObj fCartes = null;
+        private string fAbort; // Cartes Script Variable for know when the process musts abort
         private List<MyCartesAPI> apis;
         private string fFileSettings;
         private bool fShowAbort, fVisibleMode, fExecuting;
@@ -566,9 +568,9 @@ namespace MiTools
             }
         }
 
-        public MyCartesProcess(string csvAbortar) : base(csvAbortar)
+        public MyCartesProcess(string csvAbort) : base()  // "csvAbort" is a Cartes variable that when valid one will indicate to the instance that it must abort.
         {
-            fCartes = null;
+            fAbort = ToString(csvAbort).Trim();
             apis = new List<MyCartesAPI>();
             fFileSettings = null;
             fShowAbort = true;
@@ -576,7 +578,11 @@ namespace MiTools
             fExecuting = false;
             fSMTP = null;
         }
-  
+
+        internal void iCheckAbort()
+        {
+            CheckAbort();
+        }
         internal void AddAPI(MyCartesAPI api)
         {
             try
@@ -613,37 +619,52 @@ namespace MiTools
                 else throw new MyException(EXIT_SETTINGS_KO, "Loading settings:" + LF + e.Message);
             }
         }
- 
+
+        protected override Mutex GetRC()
+        {
+            return fRC;
+        }
         protected override CartesObj getCartes()
         {
             if (fCartes == null)
             {
-                if ((CartesPath.Length > 0) && File.Exists(CartesPath))
+                CR.WaitOne();
+                try
                 {
-                    bool ok;
-                    string CartesName = Path.GetFileNameWithoutExtension(CartesPath);
-                    System.Diagnostics.Process current = System.Diagnostics.Process.GetCurrentProcess();
-                    System.Diagnostics.Process[] ap = System.Diagnostics.Process.GetProcessesByName(CartesName);
-                    ok = false;
-                    foreach (System.Diagnostics.Process item in ap)
+                    if (fCartes == null)
                     {
-                        if (item.SessionId == current.SessionId)
+                        if ((CartesPath.Length > 0) && File.Exists(CartesPath))
                         {
-                            ok = true;
-                            break;
+                            bool ok;
+                            string CartesName = Path.GetFileNameWithoutExtension(CartesPath);
+                            System.Diagnostics.Process current = System.Diagnostics.Process.GetCurrentProcess();
+                            System.Diagnostics.Process[] ap = System.Diagnostics.Process.GetProcessesByName(CartesName);
+                            ok = false;
+                            foreach (System.Diagnostics.Process item in ap)
+                            {
+                                if (item.SessionId == current.SessionId)
+                                {
+                                    ok = true;
+                                    break;
+                                }
+                            }
+                            if (!ok)
+                            {
+                                System.Diagnostics.Process.Start(CartesPath);
+                                System.Threading.Thread.Sleep(3000);
+                            }
+                            MyCartesForensic lpCoroner = new MyCartesForensic();
+                            setCoroner(lpCoroner);
+                            fCartes = lpCoroner.Cartes;
+                            CartesObjExtensions.GlobalCartes = fCartes;
                         }
+                        else throw new Exception("Cartes is not installed. Please install Robot Cartes from the RPA Suite installation.");
                     }
-                    if (!ok)
-                    {
-                        System.Diagnostics.Process.Start(CartesPath);
-                        System.Threading.Thread.Sleep(3000);
-                    }
-                    MyCartesForensic lpCoroner = new MyCartesForensic();
-                    setCoroner(lpCoroner);
-                    fCartes = lpCoroner.Cartes;
-                    CartesObjExtensions.GlobalCartes = fCartes;
                 }
-                else throw new Exception("Cartes is not installed. Please install Robot Cartes from the RPA Suite installation.");
+                finally
+                {
+                    CR.ReleaseMutex();
+                }
             }
             return fCartes;
         }
@@ -709,6 +730,15 @@ namespace MiTools
             }
             return result;
         }
+        protected override void CheckAbort() // It checks if the variable to abort is 1 to throw an exception
+        {
+            if (GetIsAborting())
+                throw new MyException(EXIT_ABORT, "Abort by user.");
+        }
+        protected override bool GetIsAborting() 
+        {
+            return (Abort.Length > 0) && (cartes.Execute(Abort + ".value;") == "1");
+        }
         protected virtual int GetApis()
         {
             return apis.Count;
@@ -759,6 +789,10 @@ namespace MiTools
             if (!IsDebug)
                 Close();
         }
+        protected string Abort
+        {
+            get { return fAbort; }
+        }  // Read Only
 
         public bool Execute()  // Execute the process. if succesfull return True, else return false
         {
@@ -937,7 +971,7 @@ namespace MiTools
         private MyCartesProcess fowner;
         private bool fChecked;
 
-        public MyCartesAPI(MyCartesProcess owner) : base(owner.Abort)
+        public MyCartesAPI(MyCartesProcess owner) : base()
         {
             fowner = owner;
             fChecked = false;
@@ -946,6 +980,10 @@ namespace MiTools
         ~MyCartesAPI()
         {
             fowner.DeleteAPI(this);
+        }
+        protected override Mutex GetRC()
+        {
+            return Owner.CR;
         }
         protected override CartesObj getCartes()
         {
@@ -972,6 +1010,18 @@ namespace MiTools
         {
             return Owner.IsSwarmExecution;
         }
+        protected override void CheckAbort()
+        {
+            Owner.iCheckAbort();
+        }
+        protected override bool GetIsAborting()
+        {
+            return Owner.IsAborting;
+        }
+        protected virtual MyCartesProcess GetOwner()
+        {
+            return fowner;
+        }
 
         public override double ToDouble(string value)
         {
@@ -981,7 +1031,7 @@ namespace MiTools
 
         public MyCartesProcess Owner
         {
-            get { return fowner; }
+            get { return GetOwner(); }
         }
     }
 
