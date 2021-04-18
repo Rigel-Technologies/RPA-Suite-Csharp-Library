@@ -29,8 +29,8 @@ namespace MiTools
                 if (fCurrentPath == null)
                 {
                     fVerbose = IsDebug;
-                    fCurrentPath = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
                     fCurrentApp = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName);
+                    fCurrentPath = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
                 }
             }
             finally
