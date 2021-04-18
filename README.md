@@ -13,3 +13,5 @@ In these videos you can see:
 Computer studies teach that developments must be Robust, Reliable, Reusable, Legible and Maintainable. Use only high-level modern languages. Don't forget that C# were invented to be Robust, Reliable, Reusable, Legible and Maintainable.
 
 You can also collaborate with the community and extend this RPA library for C# with your new ideas, with new connectors, classes, examples...
+
+To collaborate just write a new issues message with subject "join collaborator team"
