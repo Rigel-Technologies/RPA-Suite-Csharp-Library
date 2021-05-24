@@ -228,7 +228,7 @@ namespace ChromeLib
         public override void Close() // It closes Chrome.
         {
             MergeLibrariesAndLoadVariables();
-            Execute("$cshChrome00 = new TChrome(" + Abort + ");\r\n" +
+            Execute("$cshChrome00 = new TChrome(" + cartes.Abort + ");\r\n" +
                     "$cshChrome00.closeAll();");
         }
         public void OpenURL(string URL, params IRPAComponent[] Components) /* It opens the indicated web page. Components must be a list of components of the page
@@ -269,7 +269,7 @@ namespace ChromeLib
                                 {
                                     RPAWin32Component chrome = chmURLEdit.Root();
                                     fSpanish = true;
-                                    if (!StringIn(ToString(chrome.WindowState), "normal"))
+                                    if (!StringIn(ToString(chrome.WindowState), "maximized"))
                                         chrome.Show("restore");
                                     chrome.Move(0, 0);
                                     chrome.ReSize(985, 732);
@@ -283,7 +283,7 @@ namespace ChromeLib
                                     chmURLEdit.TypeKey("Enter");
                                     Thread.Sleep(500);
                                     if (Components == null) lbAdjust = true;
-                                    else ComponentsExist(30, Components);
+                                    else exit = ComponentsExist (30, Components);
                                 }
                                 else
                                 {
@@ -309,14 +309,14 @@ namespace ChromeLib
                             if (Components == null) list.Add(chm);
                             else list.AddRange(Components.ToList());
                             list.Add(chmProxy);
-                            ComponentsExist(30, list.ToArray());
+                           exit= ComponentsExist(30, list.ToArray());
                         }
                         else
                         {
                             cartes.run("chrome.exe");
                             reset(chm);
                             Thread.Sleep(500);
-                            ComponentsExist(30, chmProxy, chmURLEdit);
+                           exit= ComponentsExist(30, chmProxy, chmURLEdit);
                         }
                     }
                     catch (Exception e)
@@ -338,14 +338,28 @@ namespace ChromeLib
         public void Login(string email, string password) /* The indicated user is logged into Chrome. */
         {
             MergeLibrariesAndLoadVariables();
-            Execute("$cshChrome00 = new TChrome(" + Abort + ");\r\n" +
+            Execute("$cshChrome00 = new TChrome(" + cartes.Abort + ");\r\n" +
                     "$cshChrome00.Login(\"" + email.Replace("\"", "\"\"") + "\", \"" + password.Replace("\"", "\"\"") + "\");");
         }
         public void Setup() /* It adjusts the Chrome settings. */
         {
             MergeLibrariesAndLoadVariables();
-            Execute("$cshChrome00 = new TChrome(" + Abort + ");\r\n" +
+            Execute("$cshChrome00 = new TChrome(" + cartes.Abort + ");\r\n" +
                     "$cshChrome00.Setup;");
+        }
+
+        public void atrasPag() // Abre la ultima descarga.
+        {
+            MergeLibrariesAndLoadVariables();
+            Execute("$cshChrome00 = new TChrome(" + cartes.Abort + ");\r\n" +
+                    "$cshChrome00.atrasPag;");
+        }
+
+        public void refreshPag() // Abre la ultima descarga.
+        {
+            MergeLibrariesAndLoadVariables();
+            Execute("$cshChrome00 = new TChrome(" + cartes.Abort + ");\r\n" +
+                    "$cshChrome00.refreshPag;");
         }
 
         public CredentialStack ProxyPassword
