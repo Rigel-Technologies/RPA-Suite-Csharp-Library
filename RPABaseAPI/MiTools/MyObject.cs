@@ -72,7 +72,7 @@ namespace MiTools
 
         protected static string getLibraryVersion()
         {
-            return "1.6.5.51";
+            return "1.6.6.0";
         }
         protected virtual string getCurrentFile()
         {

@@ -16,8 +16,7 @@ namespace ChromeLib
     public class Chrome : MyCartesAPIBase
     {
         private static bool loaded = false;
-        private bool fSpanish;
-        private Mutex fRC = new Mutex();
+        private bool fSpanish, fIncognito;
         private Thread fThStack = null;
         private CredentialStack fPrxyPsw;
         protected RPAWin32Component chm = null, chmURLEdit = null, chmTabs = null, chmClose = null, chmCloseCRC = null;
@@ -27,12 +26,12 @@ namespace ChromeLib
         {
             fPrxyPsw = null;
             fSpanish = true;
+            fIncognito = false;
         }
         ~Chrome()
         {
             SetProxyPassword(null);
         }
-
         private string CheckURL(string URL)
         {
             string murl = ToString(URL).ToLower();
@@ -45,13 +44,9 @@ namespace ChromeLib
             else if (murl.Contains("chrome:")) return URL;
             else return "http://" + URL;
         }
-        private Mutex GetRC()
-        {
-            return fRC;
-        }
         private void InitThread()
         {
-            RC.WaitOne();
+            CR.WaitOne();
             try
             {
                 if ((fThStack == null) || !fThStack.IsAlive)
@@ -63,41 +58,16 @@ namespace ChromeLib
             }
             finally
             {
-                RC.ReleaseMutex();
+                CR.ReleaseMutex();
             }
         }
-        public void ControlTab(DateTime timeout)
+        private bool GetProxyExists()
         {
-            int borrardesde, final;
-            string route = string.Empty;
-
-            Balloon("Closing tabs...");
-            reset(chmTabs);
-            while ((chmTabs.dochild(route, "descendants") == "1") && !StringIn(chmTabs.dochild(route + "\\0", "idrole"), "37"))
-            {
-                route = route + "\\0";
-                reset(chmTabs);
-            }
-            chmTabs.focus();
-            borrardesde = 1;
-            while (chmTabs.dochild(route + "\\" + borrardesde.ToString(), "idrole") == "37")
-            {
-                if (timeout < Now) throw new Exception("I can not close the tabs of Chrome.");
-                chmTabs.dochild(route + "\\" + borrardesde.ToString(), "click");
-                reset(chmTabs);
-                Thread.Sleep(500);
-                final = int.Parse(chmTabs.dochild(route + "\\" + borrardesde.ToString(), "descendants")) - 1;
-                while (!(final < 0) &&
-                       (chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "idrole") != "43") &&
-                       (chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "visible") != "1"))
-                {
-                    final = final - 1;
-                }
-                Balloon("Closing tabs...");
-                if (!(final < 0)) chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "click");
-                else throw new Exception("Can't close tab.");
-                reset(chmTabs);
-            }
+            return chmProxy.ComponentExist() && chmProxyPsw.ComponentExist() && chmProxy.Inside(chmProxyPsw);
+        }
+        private bool Spanish
+        {
+            get { return fSpanish; }
         }
 
         protected override void MergeLibrariesAndLoadVariables()
@@ -120,21 +90,29 @@ namespace ChromeLib
                 chmProxyAceptar = GetComponent<RPAWin32Component>("$ChromePrxIniciar");
             }
         }
+        protected virtual bool GetIncognito()
+        {
+            return fIncognito;
+        }
+        protected virtual void SetIncognito(bool value)
+        {
+            fIncognito = value;
+        }
         protected virtual CredentialStack GetProxyPassword()
         {
-            RC.WaitOne();
+            CR.WaitOne();
             try
             {
                 return fPrxyPsw;
             }
             finally
             {
-                RC.ReleaseMutex();
+                CR.ReleaseMutex();
             }
         }
         protected virtual void SetProxyPassword(CredentialStack value)
         {
-            RC.WaitOne();
+            CR.WaitOne();
             try
             {
                 fPrxyPsw = value;
@@ -143,11 +121,11 @@ namespace ChromeLib
             }
             finally
             {
-                RC.ReleaseMutex();
+                CR.ReleaseMutex();
             }
         }
         protected virtual void ProcessBackGroundButtons() /* This is the method of a thread responsible for clicking the
-            buttons that allow access to Outlook from DCOM. */
+            buttons that allow access to Proxy. */
         {
             const int delay = 30;
             DateTime timereset = DateTime.Now.AddSeconds(delay);
@@ -162,14 +140,14 @@ namespace ChromeLib
                     }
                     else
                     {
-                        RC.WaitOne();
+                        CR.WaitOne();
                         try
                         {
                             CheckProxy();
                         }
                         finally
                         {
-                            RC.ReleaseMutex();
+                            CR.ReleaseMutex();
                         }
                     }
                 }
@@ -203,7 +181,7 @@ namespace ChromeLib
             {
                 if (ProxyPassword != null)
                 {
-                    while (chmProxy.ComponentExist() && StringIn(chmProxy.name(), "Iniciar sesión"))
+                    while (GetProxyExists() && StringIn(chmProxy.name(), "Iniciar sesión"))
                     {
                         CheckAbort();
                         chmProxyUser.Value = ProxyPassword.User;
@@ -220,15 +198,43 @@ namespace ChromeLib
                 throw;
             }
         }
-        protected Mutex RC // The Critical section
+        protected void ControlTab(DateTime timeout) // Close all the tabs until only one is left.
         {
-            get { return GetRC(); }
+            int borrardesde, final;
+            string route = string.Empty;
+
+            Balloon("Closing tabs...");
+            reset(chmTabs);
+            while ((chmTabs.dochild(route, "descendants") == "1") && !StringIn(chmTabs.dochild(route + "\\0", "idrole"), "37"))
+            {
+                route = route + "\\0";
+                reset(chmTabs);
+            }
+            chmTabs.focus();
+            borrardesde = 1;
+            while (chmTabs.dochild(route + "\\" + borrardesde.ToString(), "idrole") == "37")
+            {
+                if (timeout < Now) throw new Exception("I can not close the tabs of Chrome.");
+                chmTabs.dochild(route + "\\" + borrardesde.ToString(), "click");
+                reset(chmTabs);
+                Thread.Sleep(500);
+                final = int.Parse(chmTabs.dochild(route + "\\" + borrardesde.ToString(), "descendants")) - 1;
+                while (!(final < 0) &&
+                       (chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "idrole") != "43") &&
+                       (chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "visible") != "1"))
+                {
+                    final = final - 1;
+                }
+                Balloon("Closing tabs...");
+                if (!(final < 0)) chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "click");
+                else throw new Exception("Can't close tab.");
+                reset(chmTabs);
+            }
         }
 
         public override void Close() // It closes Chrome.
         {
-            MergeLibrariesAndLoadVariables();
-            Execute("$cshChrome00 = new TChrome(" + cartes.Abort + ");\r\n" +
+            Execute("$cshChrome00 = new TChrome(" + Owner.Abort + ");\r\n" +
                     "$cshChrome00.closeAll();");
         }
         public void OpenURL(string URL, params IRPAComponent[] Components) /* It opens the indicated web page. Components must be a list of components of the page
@@ -236,6 +242,11 @@ namespace ChromeLib
         {
             bool spread, exit, lbAdjust;
             DateTime timeout;
+
+            string TxtIncognito()
+            {
+                return Incognito ? " --incognito" : "";
+            }
 
             spread = false;
             lbAdjust = false;
@@ -252,10 +263,10 @@ namespace ChromeLib
                     {
                         if (chm.ComponentExist())
                         {
-                            RC.WaitOne();
+                            CR.WaitOne();
                             try
                             {
-                                if (chmProxy.ComponentExist()) CheckProxy();
+                                if (GetProxyExists()) CheckProxy();
                                 else if (chmClose.ComponentExist() && chmCloseCRC.ComponentExist() &&
                                     ((ToString(chmClose.name()).Length > 0) || (ToString(chmCloseCRC.name()).Length > 0)) &&
                                     (!StringIn(ToString(chmClose.name()), "cerrar") || !StringIn(ToString(chmCloseCRC.name()), "cerrar"))
@@ -269,21 +280,36 @@ namespace ChromeLib
                                 {
                                     RPAWin32Component chrome = chmURLEdit.Root();
                                     fSpanish = true;
-                                    if (!StringIn(ToString(chrome.WindowState), "maximized"))
+                                    if (!StringIn(ToString(chrome.WindowState), "normal"))
                                         chrome.Show("restore");
-                                    chrome.Move(0, 0);
-                                    chrome.ReSize(985, 732);
-                                    ControlTab(timeout);
-                                    exit = lbAdjust || ComponentsExist(0, Components);
+                                    else
+                                    {
+                                        chrome.Move(0, 0);
+                                        chrome.ReSize(985, 732);
+                                        ControlTab(timeout);
+                                        exit = lbAdjust || ComponentsExist(0, Components);
+                                    }
                                 }
                                 else if (chmURLEdit.ComponentExist())
                                 {
-                                    ControlTab(timeout);
-                                    chmURLEdit.TypeFromClipboardCheck(CheckURL(URL), 1, 0);
-                                    chmURLEdit.TypeKey("Enter");
-                                    Thread.Sleep(500);
-                                    if (Components == null) lbAdjust = true;
-                                    else exit = ComponentsExist (30, Components);
+                                    RPAWin32Component chrome = chmURLEdit.Root();
+
+                                    if (!StringIn(ToString(chrome.WindowState), "normal"))
+                                        chrome.Show("restore");
+                                    else
+                                    {
+                                        chmURLEdit.focus();
+                                        reset(chm);
+                                        if ((Components == null) || !ComponentsExist(0, Components))
+                                        {
+                                            ControlTab(timeout);
+                                            chmURLEdit.TypeFromClipboardCheck(CheckURL(URL), 1, 0);
+                                            chmURLEdit.TypeKey("Enter");
+                                            Thread.Sleep(500);
+                                            if (Components == null) lbAdjust = true;
+                                            else ComponentsExist(30, Components);
+                                        }
+                                    }
                                 }
                                 else
                                 {
@@ -296,12 +322,12 @@ namespace ChromeLib
                             }
                             finally
                             {
-                                RC.ReleaseMutex();
+                                CR.ReleaseMutex();
                             }
                         }
                         else if (ToString(URL).Trim().Length > 0)
                         {
-                            cartes.run("chrome.exe \"" + ToString(URL).Trim() + "\"");
+                            cartes.run("chrome.exe" + TxtIncognito() + " \"" + ToString(URL).Trim() + "\"");
                             reset(chm);
                             Thread.Sleep(500);
                             Balloon("Waiting for Chrome");
@@ -313,7 +339,7 @@ namespace ChromeLib
                         }
                         else
                         {
-                            cartes.run("chrome.exe");
+                            cartes.run("chrome.exe" + TxtIncognito());
                             reset(chm);
                             Thread.Sleep(500);
                            exit= ComponentsExist(30, chmProxy, chmURLEdit);
@@ -337,31 +363,30 @@ namespace ChromeLib
         }
         public void Login(string email, string password) /* The indicated user is logged into Chrome. */
         {
-            MergeLibrariesAndLoadVariables();
-            Execute("$cshChrome00 = new TChrome(" + cartes.Abort + ");\r\n" +
+            Execute("$cshChrome00 = new TChrome(" + Owner.Abort + ");\r\n" +
                     "$cshChrome00.Login(\"" + email.Replace("\"", "\"\"") + "\", \"" + password.Replace("\"", "\"\"") + "\");");
         }
         public void Setup() /* It adjusts the Chrome settings. */
         {
-            MergeLibrariesAndLoadVariables();
-            Execute("$cshChrome00 = new TChrome(" + cartes.Abort + ");\r\n" +
+            Execute("$cshChrome00 = new TChrome(" + Owner.Abort + ");\r\n" +
                     "$cshChrome00.Setup;");
         }
-
-        public void atrasPag() // Abre la ultima descarga.
+        public void BackPage() // Go back page.
         {
-            MergeLibrariesAndLoadVariables();
-            Execute("$cshChrome00 = new TChrome(" + cartes.Abort + ");\r\n" +
-                    "$cshChrome00.atrasPag;");
+            Execute("$cshChrome00 = new TChrome(" + Owner.Abort + ");\r\n" +
+                    "$cshChrome00.BackPage;");
+        }
+        public void RefreshPage() // Refresh the page.
+        {
+            Execute("$cshChrome00 = new TChrome(" + Owner.Abort + ");\r\n" +
+                    "$cshChrome00.RefreshPage;");
         }
 
-        public void refreshPag() // Abre la ultima descarga.
+        public bool Incognito
         {
-            MergeLibrariesAndLoadVariables();
-            Execute("$cshChrome00 = new TChrome(" + cartes.Abort + ");\r\n" +
-                    "$cshChrome00.refreshPag;");
+            get { return GetIncognito(); }
+            set { SetIncognito(value); }
         }
-
         public CredentialStack ProxyPassword
         {
             get { return GetProxyPassword(); }

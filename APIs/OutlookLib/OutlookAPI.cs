@@ -13,7 +13,6 @@ namespace OutlookLib
 {
     public class OutlookAPI : MyCartesAPIBase
     {
-        private Mutex fRC = new Mutex();
         private Outlook.Application fOutlook;
         private Outlook.NameSpace fSpace;
         private Outlook.MAPIFolder fInbox, fDeleted;
@@ -34,7 +33,7 @@ namespace OutlookLib
         }
         ~OutlookAPI()
         {
-            RC.WaitOne();
+            CR.WaitOne();
             try
             {
                 fThStack = null;
@@ -50,17 +49,13 @@ namespace OutlookLib
             }
             finally
             {
-                RC.ReleaseMutex();
+                CR.ReleaseMutex();
             }
         }
 
-        private Mutex GetRC()
-        {
-            return fRC;
-        }
         private void InitThread()
         {
-            RC.WaitOne();
+            CR.WaitOne();
             try
             {
                 if ((fThStack == null) || !fThStack.IsAlive)
@@ -72,7 +67,7 @@ namespace OutlookLib
             }
             finally
             {
-                RC.ReleaseMutex();
+                CR.ReleaseMutex();
             }
         }
         private Outlook.Application GetOutlook()
@@ -81,7 +76,7 @@ namespace OutlookLib
             {
                 if (fOutlook == null)
                 {
-                    RC.WaitOne();
+                    CR.WaitOne();
                     try
                     {
                         if (fOutlook == null)
@@ -96,7 +91,7 @@ namespace OutlookLib
                     }
                     finally
                     {
-                        RC.ReleaseMutex();
+                        CR.ReleaseMutex();
                     }
                 }
             }
@@ -113,7 +108,7 @@ namespace OutlookLib
             {
                 if (fSpace == null)
                 {
-                    RC.WaitOne();
+                    CR.WaitOne();
                     try
                     {
                         if (fSpace == null)
@@ -121,7 +116,7 @@ namespace OutlookLib
                     }
                     finally
                     {
-                        RC.ReleaseMutex();
+                        CR.ReleaseMutex();
                     }
                 }
             }
@@ -185,7 +180,7 @@ namespace OutlookLib
             {
                 try
                 {
-                    RC.WaitOne();
+                    CR.WaitOne();
                     try
                     {
                         if (OutlookAllowBtnES.ComponentExist() && (OutlookAllowBtnES.enabled() != 0) &&
@@ -203,7 +198,7 @@ namespace OutlookLib
                     }
                     finally
                     {
-                        RC.ReleaseMutex();
+                        CR.ReleaseMutex();
                     }
                 }
                 catch (Exception e)
@@ -212,10 +207,6 @@ namespace OutlookLib
                 }
                 Thread.Sleep(500);
             }
-        }
-        protected Mutex RC // The Critical section
-        {
-            get { return GetRC(); }
         }
         protected Outlook.Application Application
         {
@@ -228,7 +219,7 @@ namespace OutlookLib
 
         public override void Close()
         {
-            RC.WaitOne();
+            CR.WaitOne();
             try
             {
                 Application.Quit();
@@ -241,7 +232,7 @@ namespace OutlookLib
             }
             finally
             {
-                RC.ReleaseMutex();
+                CR.ReleaseMutex();
             }
         }
         public virtual Outlook.MailItem NewEmail()
