@@ -13,9 +13,10 @@ using System.Linq;
 using System.Windows;
 using System.Diagnostics;
 using System.Drawing;
+using System.Runtime.InteropServices;
 
 //////////////////////
-// 2021/03/18
+// 2021/08/19
 //////////////////////
 
 namespace MiTools
@@ -95,6 +96,8 @@ namespace MiTools
             }
             return result;
         }
+        [DllImport("user32.dll", CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
+        private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint cButtons, uint dwExtraInfo);
 
         protected abstract Mutex GetRC();
         protected abstract CartesObj getCartes();
@@ -198,6 +201,19 @@ namespace MiTools
         }
         protected abstract void CheckAbort(); // If abort is requested, the method should throw an exception.
         protected abstract bool GetIsAborting(); // The method returns true if abort has been requested
+        protected void DoMouseClick() //Do a click in the cursor's current position
+        {
+            //Mouse actions
+            const int MOUSEEVENTF_LEFTDOWN = 0x02;
+            const int MOUSEEVENTF_LEFTUP = 0x04;
+            //const int MOUSEEVENTF_RIGHTDOWN = 0x08;
+            //const int MOUSEEVENTF_RIGHTUP = 0x10;
+
+            //Call the imported function with the cursor's current position
+            uint X = (uint)Cursor.Position.X;
+            uint Y = (uint)Cursor.Position.Y;
+            mouse_event(MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_LEFTUP, X, Y, 0, 0);
+        }
         protected virtual bool ComponentsExist(int seconds, params IRPAComponent[] components) /* The method waits for the indicated
               seconds until one of the components exists. If any of the components exist, returns true. */
         {
@@ -789,10 +805,6 @@ namespace MiTools
             if (!IsDebug)
                 Close();
         }
-        protected string Abort
-        {
-            get { return fAbort; }
-        }  // Read Only
 
         public bool Execute()  // Execute the process. if succesfull return True, else return false
         {
@@ -946,6 +958,10 @@ namespace MiTools
             }
             set { fFileSettings = value; }
         } // Read & Write
+        public string Abort
+        {
+            get { return fAbort; }
+        }  // Read Only. The property returns the name of the variable used for the abort control.
         public bool ShowAbort
         {
             get { return fShowAbort; }
@@ -1194,6 +1210,26 @@ namespace MiTools
         public static void DoubleClickOnImage(this IRPAWin32Component component, bool MoveMouse, List<string> ImageFiles)
         {
             component.DoubleClickOnImage(MoveMouse, ImageFiles.ToArray());
+        }
+        public static bool Inside(this IRPAWin32Component root, IRPAWin32Component child) // Returns true if the screen coordinates of "child" are within "root".
+        {
+            return ((root.x <= child.x) && (child.x + child.width <= root.x + root.width)) &&
+                ((root.y <= child.y) && (child.y + child.height <= root.y + root.height));
+        }
+        public static bool Inside(this IRPAJava32Component root, IRPAJava32Component child)
+        {
+            return ((root.x <= child.x) && (child.x + child.width <= root.x + root.width)) &&
+                ((root.y <= child.y) && (child.y + child.height <= root.y + root.height));
+        }
+        public static bool Inside(this IRPASapControl root, IRPASapControl child)
+        {
+            return ((root.x() <= child.x()) && (child.x() + child.width() <= root.x() + root.width())) &&
+                ((root.y() <= child.y()) && (child.y() + child.height() <= root.y() + root.height()));
+        }
+        public static bool Inside(this IRPAMSHTMLComponent root, IRPAMSHTMLComponent child)
+        {
+            return ((root.x() <= child.x()) && (child.x() + child.width() <= root.x() + root.width())) &&
+                ((root.y() <= child.y()) && (child.y() + child.height() <= root.y() + root.height()));
         }
     }
 }

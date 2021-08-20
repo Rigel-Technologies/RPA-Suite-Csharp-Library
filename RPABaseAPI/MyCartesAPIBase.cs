@@ -3,8 +3,10 @@ using MiTools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Windows.Forms;
 
 namespace RPABaseAPI
 {
@@ -45,7 +47,9 @@ namespace RPABaseAPI
             loaded = false;
             vsWindow = null;
         }
+
        
+
         public override void Close()
         {
             bool exit;
@@ -138,6 +142,7 @@ namespace RPABaseAPI
             if (fVS == null) fVS = new ClassVisualStudio(this);
             return fVS;
         }
+
         public override void Close()
         {
             int i;

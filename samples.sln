@@ -36,6 +36,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "05 - Outlook and Excel", "s
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "01 APIs", "01 APIs", "{146D5D9B-6EFD-45FE-B92A-F0C501105599}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "06 - Miscellaneous", "samples\06 - Miscellaneous\06 - Miscellaneous.csproj", "{AA184941-0D0C-442F-8D2A-3B0AE6881B8D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -90,6 +92,10 @@ Global
 		{44B4E0FF-B8C4-46A8-A832-FDC0B6682F82}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{44B4E0FF-B8C4-46A8-A832-FDC0B6682F82}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{44B4E0FF-B8C4-46A8-A832-FDC0B6682F82}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA184941-0D0C-442F-8D2A-3B0AE6881B8D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA184941-0D0C-442F-8D2A-3B0AE6881B8D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA184941-0D0C-442F-8D2A-3B0AE6881B8D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA184941-0D0C-442F-8D2A-3B0AE6881B8D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -106,6 +112,7 @@ Global
 		{44FF9E96-3CD7-439F-8601-A6D748714E9B} = {90713C7A-69C4-47A9-8263-16179E2F321A}
 		{6E840137-6BAE-4FF9-975E-96ACCB8374EC} = {90713C7A-69C4-47A9-8263-16179E2F321A}
 		{44B4E0FF-B8C4-46A8-A832-FDC0B6682F82} = {90713C7A-69C4-47A9-8263-16179E2F321A}
+		{AA184941-0D0C-442F-8D2A-3B0AE6881B8D} = {90713C7A-69C4-47A9-8263-16179E2F321A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {EBE9A465-7201-437E-9F24-1C0EE89A23FF}
