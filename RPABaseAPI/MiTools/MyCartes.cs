@@ -288,53 +288,22 @@ namespace MiTools
         protected virtual void AssignValueInsistently(DateTime timeout, IRPAWin32Component component, string value, bool typed = false) /* Assign the indicated value to the
             component. If it does not succeed, it will insist until the system time exceeds "timeot". */
         {
-            RPAWin32Component root = null;
-            RPAParameters parameters = new RPAParameters();
-            string path = string.Empty;
-
             do
             {
-                root = component.Root();
-                if (root != null)
-                {
-                    path = component.route();
-                    break;
-                }
-                else if (timeout < DateTime.Now) throw new Exception("I can't assign the value \"" + value + "\" to the component.");
-                else
-                {
-                    reset(component);
-                    CheckAbort();
-                    Thread.Sleep(1000);
-                }
-            } while (true);
-            do
-            {
-                parameters.clear();
                 if (typed)
                     try
                     {
-                        parameters.item[0] = value;
-                        parameters.itemAsInteger[1] = 0;
-                        parameters.itemAsInteger[2] = 0;
-                        root.dochild(path, "TypeFromClipboard", parameters);
+                        component.TypeFromClipboardCheck(value, 0, 0);
                     }
-                    catch
+                    catch 
                     {
-                        parameters.item[0] = value;
-                        parameters.itemAsInteger[1] = 0;
-                        parameters.itemAsInteger[2] = 0;
-                        root.dochild(path, "TypeWord", parameters);
+                        component.TypeWordCheck(value, 0, 0);
                     }
-                else
-                {
-                    parameters.item[0] = value;
-                    root.dochild(path, "Value", parameters);
-                }
+                else component.Value = value;
                 CheckAbort();
                 Thread.Sleep(1000);
                 reset(component);
-                if (ToString(root.dochild(path, "Value")).ToLower() == value.ToLower()) break;
+                if (ToString(component.Value).ToLower() == value.ToLower()) break;
                 else
                 {
                     if (timeout < DateTime.Now) throw new Exception("I can't assign the value \"" + value + "\" to the component.");
@@ -1154,15 +1123,6 @@ namespace MiTools
 
             return result;
         }
-        public static List<int> RouteInt(this IRPAComponent component) // Returns the component path from the root.
-        {
-            string[] splited = component.route().Split('\\');
-            List<int> iRoute = new List<int>();
-
-            for (int i = 1; i < splited.Length; i++)
-                iRoute.Add(int.Parse(splited[i]));
-            return iRoute;
-        }
         public static RPAWin32Component Root(this IRPAWin32Component component)
         {
             return Casting<RPAWin32Component>(component.getComponentRoot());
@@ -1182,23 +1142,6 @@ namespace MiTools
         public static string doroot(this IRPAComponent component, string method)
         {
             return component.doroot(method, null);
-        }
-        public static T Child<T>(this IRPAComponent component, string route) where T : class, IRPAComponent
-        {
-            string[] splited = route.Split('\\');
-            List<int> iRoute = new List<int>();
-
-            for(int i = 1; i < splited.Length; i++)
-                iRoute.Add(int.Parse(splited[i]));
-            return Child<T>(component, iRoute.ToArray());
-        }
-        public static T Child<T>(this IRPAComponent component, params int[] route) where T : class, IRPAComponent
-        {
-            IRPAComponent current = component;
-
-            for (int i = 0; i < route.Length; i++)
-                current = current.child(route[i]);
-            return Casting<T>(current);
         }
         public static T Child<T>(this IRPAWin32Component component, int index) where T : class, IRPAWin32Component
         {
