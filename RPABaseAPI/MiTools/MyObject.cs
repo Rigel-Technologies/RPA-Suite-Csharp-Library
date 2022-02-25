@@ -489,6 +489,11 @@ namespace MiTools
         {
             return MyObject.ConcatenateSpecial(instance, separator);
         }
+        public static String[] Split(this string a, String separator, StringSplitOptions options)
+        {
+            string[] lSeparator = new string[] { separator };
+            return a.Split(lSeparator, options);
+        }
         public static void AddSynonyms<TKey, TValue>(this Dictionary<TKey, TValue> instance, params TKey[] synonyms)
         {
             TValue value;
