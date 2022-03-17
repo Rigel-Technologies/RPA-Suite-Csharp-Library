@@ -524,6 +524,9 @@ namespace MiTools
         {
             return Convert.ToDouble(value, getDoubleFormatProvider());
         }
+        public abstract void SendWarning(string subject, string body); /* Sends the notice to the email account assigned to the running
+          swarm process. If you don't run a swarm process, the function ignores the warning. */
+        public abstract void SendEmail(string to, string subject, string body); // It sends an email. To do this, it uses the configured email account on the RPA Server.
 
         public Mutex CR // An instance of Mutex to control the critical regions in competition.
         {
@@ -576,10 +579,16 @@ namespace MiTools
 
     public abstract class MyCartesProcess : MyCartes // This abstract class allows you to create processes using APIS from MyCartesAPI.
     {
+        public enum ProcessState { rest, starting, iterating, ending }; // The process must exist in some of these execution states.
         protected const string EXIT_SETTINGS_KO = "Settings_" + EXIT_ERROR;
         private static string fCartesPath = null;
         private static Mutex fRC = new Mutex();
         private static CartesObj fCartes = null;
+        private ProcessState fState;
+        private bool fAllowSendReport;
+        private DateTime fStart;
+        private Dictionary<string, int> fTypifycationsCounter = null;
+        private List<string> fTypifycations = null;
         private string fAbort; // Cartes Script Variable for know when the process musts abort
         private List<MyCartesAPI> apis;
         private string fFileSettings;
@@ -617,6 +626,11 @@ namespace MiTools
 
         public MyCartesProcess(string csvAbort) : base()  // "csvAbort" is a Cartes variable that when valid one will indicate to the instance that it must abort.
         {
+            fState = ProcessState.rest;
+            fAllowSendReport = true;
+            fStart = DateTime.Now;
+            fTypifycationsCounter = new Dictionary<string, int>();
+            fTypifycations = new List<string>();
             fAbort = ToString(csvAbort).Trim();
             apis = new List<MyCartesAPI>();
             fFileSettings = null;
@@ -822,7 +836,60 @@ namespace MiTools
         }
         protected virtual int RegisterIteration(DateTime start, string typify, string data, bool screenShot = false)
         {
-            return cartes.RegisterIteration(start, typify, data, screenShot ? 1 : 0);
+            int result, counter;
+            try
+            {
+                result = cartes.RegisterIteration(start, typify, data, screenShot ? 1 : 0);
+            }
+            finally
+            {
+                if (fTypifycationsCounter.TryGetValue(typify, out counter))
+                    fTypifycationsCounter[typify] = counter + 1;
+                else fTypifycationsCounter[typify] = 1;
+                fTypifycations.Insert(fTypifycations.Count, typify);
+                if (AllowSendReports)
+                    SendReport(fStart, State, fTypifycationsCounter, fTypifycations);
+            }
+            return result;
+        }
+        protected virtual void SendReport(DateTime start, ProcessState state, Dictionary<string, int> TypifycationsCounter, List<string> Typifycations)
+        /* This method is used to send execution status reports to the email enabled in the RPA Center as recipient of the warnings.
+           Redefine it to send your own reports. The parameters are "start" (process execution start time), "status" (process status),
+           "TypificationsCounter" (number of operations per typifycation) and "Typifycations" (listed in order of execution of the
+           operations performed) . */
+        {
+
+            string Resumen()
+            {
+                string result = string.Empty;
+
+                foreach (KeyValuePair<string, int> cell in TypifycationsCounter)
+                    result = result + ToString(cell.Key) + " : " + ToString(cell.Value) + LF;
+                if (result.Length > 0) return "Number of operations for each typifycation." + LF + result;
+                else return result;
+            }
+
+            string text = string.Empty;
+
+            switch (state)
+            {
+                case ProcessState.ending:
+                    string timing = "It started at " + start.ToShortTimeString() + " and finished at " + DateTime.Now.ToShortTimeString() + ".";
+                    if (Typifycations.Count > 0)
+                    {
+                        text = "\"" + Name + "\" is over." + LF + 
+                               timing + LF + LF +
+                               Resumen();
+                        SendWarning("\"" + Name + "\" is over.", text);
+                    }
+                    else
+                    {
+                        text = "\"" + Name + "\" is over without processing anything." + LF +
+                               timing + LF;
+                        SendWarning("\"" + Name + "\" is over without processing anything.", text);
+                    }
+                    break;
+            }
         }
         protected virtual bool DoInit() // If DoExecute must be invoked, this method returns true.
         {
@@ -837,6 +904,22 @@ namespace MiTools
                 Close();
         }
 
+        public override void SendWarning(string subject, string body)
+        {
+            cartes.SendWarning(ToString(subject), ToString(body));
+        }
+        public override void SendEmail(string to, string subject, string body)
+        {
+            string command = "SendEmail(\"" + ToString(to).Replace("\"", "\"\"") + "\", \"" + ToString(subject).Replace("\"", "\"\"") + "\", \"" + ToString(body).Replace("\"", "\"\"") + "\");";
+            try
+            {
+                Execute(command);
+            }catch(Exception e)
+            {
+                forensic("MyCartesProcess::SendEmail", e);
+                throw;
+            }
+        }
         public bool Execute()  // Execute the process. if succesfull return True, else return false
         {
             DateTime start;
@@ -852,88 +935,106 @@ namespace MiTools
                 {
                     if (enter)
                     {
-                        start = DateTime.Now;
-                        CheckRPASuiteVersion();
-                        Balloon("I'm opening the project...");
-                        lsMainFile = RPAMainFile;
-                        if (File.Exists(CurrentPath + "\\" + lsMainFile)) cartes.open(CurrentPath + "\\" + lsMainFile);
-                        else if (File.Exists(CurrentPath + "\\Cartes\\" + lsMainFile)) cartes.open(CurrentPath + "\\Cartes\\" + lsMainFile);
-                        else cartes.open(RPAMainFile);
+                        fState = ProcessState.starting;
                         try
                         {
-                            fExecuting = true;
-                            Balloon(Name);
+                            fStart = DateTime.Now;
+                            start = fStart;
+                            fTypifycationsCounter.Clear();
+                            fTypifycations.Clear();
+                            CheckRPASuiteVersion();
+                            Balloon("I'm opening the project...");
+                            lsMainFile = RPAMainFile;
+                            if (File.Exists(CurrentPath + "\\" + lsMainFile)) cartes.open(CurrentPath + "\\" + lsMainFile);
+                            else if (File.Exists(CurrentPath + "\\Cartes\\" + lsMainFile)) cartes.open(CurrentPath + "\\Cartes\\" + lsMainFile);
+                            else cartes.open(RPAMainFile);
                             try
                             {
-                                Balloon("Reading settings...");
-                                MergeLibrariesAndLoadVariables();
-                                LoadConfiguration();
+                                fExecuting = true;
                                 Balloon(Name);
                                 try
                                 {
-                                    if (VisibleMode)
-                                        Execute("visualmode(1);");
+                                    Balloon("Reading settings...");
+                                    MergeLibrariesAndLoadVariables();
+                                    LoadConfiguration();
+                                    Balloon(Name);
                                     try
                                     {
-                                        if (DoInit())
+                                        if (VisibleMode)
+                                            Execute("visualmode(1);");
+                                        try
                                         {
-                                            if (ShowAbort && (frpaAbort != null))
-                                                ShowAbortDialog(frpaAbort);
-                                            DoExecute(ref start);
+                                            if (DoInit())
+                                            {
+                                                if (ShowAbort && (frpaAbort != null))
+                                                    ShowAbortDialog(frpaAbort);
+                                                if (AllowSendReports)
+                                                    SendReport(fStart, State, fTypifycationsCounter, fTypifycations);
+                                                fState = ProcessState.iterating;
+                                                DoExecute(ref start);
+                                            }
+                                        }
+                                        finally
+                                        {
+                                            fState = ProcessState.ending;
+                                            DoEnd();
                                         }
                                     }
                                     finally
                                     {
-                                        DoEnd();
+                                        if (VisibleMode)
+                                            Execute("visualmode(0);");
                                     }
+                                    Balloon("\"" + Name + "\" is over.");
+                                    if (AllowSendReports)
+                                        SendReport(fStart, State, fTypifycationsCounter, fTypifycations);
+                                }
+                                catch (Exception e)
+                                {
+                                    MyException mye;
+
+                                    fState = ProcessState.ending;
+                                    Balloon(e.Message);
+                                    forensic(e.Message);
+                                    if (e is MyException m) mye = m;
+                                    else mye = new MyException(EXIT_ERROR, e.Message);
+                                    try
+                                    {
+                                        if (mye.code == EXIT_SETTINGS_KO)
+                                            RegisterIteration(start, EXIT_SETTINGS_KO, "<task>\r\n" +
+                                                                            "  <error>I can not load the configuration file \"" + SettingsFile + "\"</error>\r\n" +
+                                                                            "  <message>" + e.Message + "</message>\r\n" +
+                                                                            "</task>");
+                                        else
+                                            RegisterIteration(start, mye.code, "<task>\r\n" +
+                                                                            "  <data>" + e.Message + "</data>\r\n" +
+                                                                            "</task>", true);
+                                    }
+                                    catch (Exception e2)
+                                    {
+                                        Coroner.write("MyCartesProcess::Execute", e);
+                                        Coroner.write("MyCartesProcess::Execute", e2);
+                                        forensic("MyCartesProcess::Execute" + LF + "Unexpected communication failure with RPA Server.", e2);
+                                        throw;
+                                    }
+                                }
+                            }
+                            finally
+                            {
+                                try
+                                {
+                                    UnMergeLibrariesAndUnLoadVariables();
                                 }
                                 finally
                                 {
-                                    if (VisibleMode)
-                                        Execute("visualmode(0);");
-                                }
-                                Balloon("\"" + Name + "\" is over.");
-                            }
-                            catch (Exception e)
-                            {
-                                MyException mye;
-
-                                Balloon(e.Message);
-                                forensic(e.Message);
-                                if (e is MyException m) mye = m;
-                                else mye = new MyException(EXIT_ERROR, e.Message);
-                                try
-                                {
-                                    if (mye.code == EXIT_SETTINGS_KO)
-                                        RegisterIteration(start, EXIT_SETTINGS_KO, "<task>\r\n" +
-                                                                        "  <error>I can not load the configuration file \"" + SettingsFile + "\"</error>\r\n" +
-                                                                        "  <message>" + e.Message + "</message>\r\n" +
-                                                                        "</task>");
-                                    else
-                                        RegisterIteration(start, mye.code, "<task>\r\n" +
-                                                                        "  <data>" + e.Message + "</data>\r\n" +
-                                                                        "</task>", true);
-                                }
-                                catch (Exception e2)
-                                {
-                                    Coroner.write("MyCartesProcess::Execute", e);
-                                    Coroner.write("MyCartesProcess::Execute", e2);
-                                    forensic("MyCartesProcess::Execute" + LF + "Unexpected communication failure with RPA Server.", e2);
-                                    throw;
+                                    fExecuting = false;
+                                    cartes.close();
                                 }
                             }
                         }
                         finally
                         {
-                            try
-                            {
-                                UnMergeLibrariesAndUnLoadVariables();
-                            }
-                            finally
-                            {
-                                fExecuting = false;
-                                cartes.close();
-                            }
+                            fState = ProcessState.rest;
                         }
                         result = true;
                     }
@@ -979,6 +1080,15 @@ namespace MiTools
             }
         }
 
+        public ProcessState State
+        {
+            get { return fState; }
+        } // Read Only. The property returns the state of the process
+        public bool AllowSendReports
+        {
+            get { return fAllowSendReport; }
+            set { fAllowSendReport = value; }
+        } // Read & Write. The process will send execution status reports to the email enabled in the RPA Center.
         public string SettingsFile
         {
             get
@@ -1073,6 +1183,14 @@ namespace MiTools
         public override double ToDouble(string value)
         {
             return Owner.ToDouble(value);
+        }
+        public override void SendWarning(string subject, string body)
+        {
+            Owner.SendWarning(subject, body);
+        }
+        public override void SendEmail(string to, string subject, string body)
+        {
+            Owner.SendEmail(to, subject, body);
         }
         public abstract void Close(); // This method should close all the application windows
 
