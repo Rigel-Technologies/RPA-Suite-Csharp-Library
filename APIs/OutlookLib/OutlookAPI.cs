@@ -239,15 +239,15 @@ namespace OutlookLib
         {
             return Application.CreateItem(Outlook.OlItemType.olMailItem);
         }
-        public virtual void SendEmail(string EmailTo, string EmailSubject, string EmailMessage)
+        public override void SendEmail(string to, string subject, string body)
         {
             try
             {
-                if (EmailTo.Length == 0) throw new Exception("The empty string is not a valid email address.");
+                if (to.Length == 0) throw new Exception("The empty string is not a valid email address.");
                 Outlook.MailItem mailItem = NewEmail();
-                mailItem.Subject = EmailSubject;
-                mailItem.Body = EmailMessage;
-                mailItem.To = EmailTo;
+                mailItem.Subject = subject;
+                mailItem.Body = body;
+                mailItem.To = to;
                 mailItem.Send();
             }catch(Exception e)
             {
