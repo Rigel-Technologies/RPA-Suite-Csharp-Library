@@ -2,10 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Windows.Forms;
-using System.Text;
-using System.Threading.Tasks;
 using Cartes;
 using MiTools;
 using RPABaseAPI;
@@ -17,16 +13,22 @@ namespace ChromeLib
     {
         private static bool loaded = false;
         private bool fSpanish, fIncognito;
-        private Thread fThStack = null;
+        private int fHeight, fWidth;
+        private string fCertificate;
+        private Thread fThStack = null, fTh = null;
         private CredentialStack fPrxyPsw;
         protected RPAWin32Component chm = null, chmURLEdit = null, chmTabs = null, chmClose = null, chmCloseCRC = null;
-        protected RPAWin32Component chmSvPsw = null, chmProxy = null, chmProxyUser = null, chmProxyPsw = null, chmProxyAceptar = null;
+        protected RPAWin32Component chmProxy = null, chmProxyPsw = null;
+        protected RPAWin32Component chmCertificateTitle = null;
 
         public Chrome(MyCartesProcess owner) : base(owner)
         {
             fPrxyPsw = null;
             fSpanish = true;
             fIncognito = false;
+            fWidth = 985;
+            fHeight = 732;
+            fCertificate = string.Empty;
         }
         ~Chrome()
         {
@@ -61,9 +63,122 @@ namespace ChromeLib
                 CR.ReleaseMutex();
             }
         }
-        private bool GetProxyExists()
+        private void InitTask()
         {
-            return chmProxy.ComponentExist() && chmProxyPsw.ComponentExist() && chmProxy.Inside(chmProxyPsw);
+            CR.WaitOne();
+            try
+            {
+                if ((fTh == null) || !fTh.IsAlive)
+                {
+                    fTh = new Thread(ProcessBackGroundTask);
+                    fTh.IsBackground = true;
+                    fTh.Start();
+                }
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
+        }
+        private void ProcessBackGroundButtons() /* This is the method of a thread responsible for clicking the
+            buttons that allow access to Proxy. */
+        {
+            const int delay = 30;
+            var cartes = new CartesObj();
+            DateTime timereset = DateTime.Now.AddSeconds(delay);
+            while (fThStack != null)
+            {
+                try
+                {
+                    if (timereset < DateTime.Now)
+                    {
+                        CR.WaitOne();
+                        try
+                        {
+                            cartes.reset(chmProxy);
+                        }
+                        finally
+                        {
+                            CR.ReleaseMutex();
+                        }
+                        timereset = DateTime.Now.AddSeconds(delay);
+                    }
+                    else
+                    {
+                        CR.WaitOne();
+                        try
+                        {
+                            CheckProxy(cartes);
+                        }
+                        finally
+                        {
+                            CR.ReleaseMutex();
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    forensic("Chrome.ProcessBackGroundButtons", e);
+                }
+                Thread.Sleep(500);
+            }
+        }
+        private void ProcessBackGroundTask() /* This is the method of a thread responsible for clicking various
+            warning buttons. */
+        {
+            const int delay = 30;
+            var cartes = new CartesObj();
+            RPAWin32Component chmNoticeTranslateClose = null;
+            DateTime timereset = DateTime.Now.AddSeconds(delay);
+
+            chmNoticeTranslateClose = cartes.GetComponent<RPAWin32Component>("$ChromeNoticeTranslateClose");
+            while (fTh != null)
+            {
+                try
+                {
+                    if (timereset < DateTime.Now)
+                    {
+                        CR.WaitOne();
+                        try
+                        {
+                            cartes.reset(chmNoticeTranslateClose);
+                        }
+                        finally
+                        {
+                            CR.ReleaseMutex();
+                        }
+                        timereset = DateTime.Now.AddSeconds(delay);
+                    }
+                    else
+                    {
+                        CR.WaitOne();
+                        try
+                        {
+                            if (Certificate.Length > 0)
+                                SelectCertificate(cartes, Certificate);
+                            if (chmNoticeTranslateClose.ComponentExist() && StringIn(chmNoticeTranslateClose.name(), "cerrar", "close"))
+                                chmNoticeTranslateClose.click();
+                        }
+                        finally
+                        {
+                            CR.ReleaseMutex();
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    forensic("Chrome.ProcessBackGroundTask", e);
+                }
+                Thread.Sleep(500);
+            }
+        }
+        private bool GetProxyExists(RPAWin32Component Proxy, RPAWin32Component ProxyPsw)
+        {
+            return Proxy.ComponentExist() && ProxyPsw.ComponentExist() && Proxy.Inside(ProxyPsw);
+        }
+        private bool GetOpenDigitalCertificateWindow(RPAWin32Component chmCertificateTitle)
+        {
+            return chmCertificateTitle.ComponentExist() && ToString(chmCertificateTitle.name()).ToLower().Contains("seleccionar un certificado");
         }
         private bool Spanish
         {
@@ -76,19 +191,34 @@ namespace ChromeLib
             {
                 loaded = cartes.merge(CurrentPath + "\\Cartes\\Chrome Es.rpa") == 1;
             }
-            if (chm == null)
+            if (chmCertificateTitle == null)
             {
                 chm = GetComponent<RPAWin32Component>("$Chrome");
                 chmURLEdit = GetComponent<RPAWin32Component>("$ChromeURLEdit");
                 chmTabs = GetComponent<RPAWin32Component>("$ChromeTabs");
                 chmClose = GetComponent<RPAWin32Component>("$ChromeClose");
                 chmCloseCRC = GetComponent<RPAWin32Component>("$ChromeCloseCRC");
-                chmSvPsw = GetComponent<RPAWin32Component>("$ChromeSavePSW");
                 chmProxy = GetComponent<RPAWin32Component>("$ChromePrx");
-                chmProxyUser = GetComponent<RPAWin32Component>("$ChromePrxUser");
                 chmProxyPsw = GetComponent<RPAWin32Component>("$ChromePrxPsw");
-                chmProxyAceptar = GetComponent<RPAWin32Component>("$ChromePrxIniciar");
+                chmCertificateTitle = GetComponent<RPAWin32Component>("$ChromeCertificateTitle");
+                InitTask();
             }
+        }
+        protected virtual int GetHeight()
+        {
+            return fHeight;
+        }
+        protected virtual int GetWidth()
+        {
+            return fWidth;
+        }
+        protected virtual string GetCertificate()
+        {
+            return fCertificate;
+        }
+        protected virtual void SetCertificate(string value)
+        {
+            fCertificate = ToString(value);
         }
         protected virtual bool GetIncognito()
         {
@@ -124,112 +254,115 @@ namespace ChromeLib
                 CR.ReleaseMutex();
             }
         }
-        protected virtual void ProcessBackGroundButtons() /* This is the method of a thread responsible for clicking the
-            buttons that allow access to Proxy. */
+        protected virtual bool CheckProxy(CartesObj cartes) /* If the window to set the proxy credentials is visible, this method fills the form
+            with the "ProxyPassword" credentials and returns true. Otherwise, it returns false. */
         {
-            const int delay = 30;
-            DateTime timereset = DateTime.Now.AddSeconds(delay);
-            while (fThStack != null)
+            void NeverSavePassword(RPAWin32Component chmSvPsw)
             {
                 try
                 {
-                    if (timereset < DateTime.Now)
+                    while (chmSvPsw.ComponentExist(3) && StringIn(chmSvPsw.name(), "Nunca"))
                     {
-                        reset(chmProxy);
-                        timereset = DateTime.Now.AddSeconds(delay);
-                    }
-                    else
-                    {
-                        CR.WaitOne();
-                        try
-                        {
-                            CheckProxy();
-                        }
-                        finally
-                        {
-                            CR.ReleaseMutex();
-                        }
+                        CheckAbort();
+                        chmSvPsw.click();
+                        cartes.reset(chmSvPsw);
+                        Thread.Sleep(250);
                     }
                 }
                 catch (Exception e)
                 {
-                    forensic("Chrome.ProcessBackGroundButtons", e);
+                    forensic("Chrome.NeverSavePassword", e);
+                    throw;
                 }
-                Thread.Sleep(500);
             }
-        }
-        protected virtual void NeverSavePassword()
-        {
-            try
-            {
-                while (chmSvPsw.ComponentExist(3) && StringIn(chmSvPsw.name(), "Nunca"))
-                {
-                    CheckAbort();
-                    chmSvPsw.click();
-                    reset(chmSvPsw);
-                    Thread.Sleep(250);
-                }
-            }catch(Exception e)
-            {
-                forensic("Chrome.NeverSavePassword", e);
-                throw;
-            }
-        }
-        protected virtual void CheckProxy()
-        {
+
+            bool result = false;
             try
             {
                 if (ProxyPassword != null)
                 {
-                    while (GetProxyExists() && StringIn(chmProxy.name(), "Iniciar sesión"))
+                    CR.WaitOne();
+                    try
                     {
-                        CheckAbort();
-                        chmProxyUser.Value = ProxyPassword.User;
-                        ProxyPassword.Write((RPAComponent)chmProxyPsw);
-                        chmProxyAceptar.click();
-                        reset(chmProxy);
-                        NeverSavePassword();
-                        Thread.Sleep(250);
+                        RPAWin32Component chmProxy = null, chmProxyPsw = null;
+                        chmProxy = cartes.GetComponent<RPAWin32Component>("$ChromePrx");
+                        chmProxyPsw = cartes.GetComponent<RPAWin32Component>("$ChromePrxPsw");
+                        while (GetProxyExists(chmProxy, chmProxyPsw) && StringIn(ToString(chmProxy.name()).ToLower(), "iniciar sesión"))
+                        {
+                            RPAWin32Component chmProxyUser = null, chmProxyAceptar = null;
+
+                            chmProxyUser = cartes.GetComponent<RPAWin32Component>("$ChromePrxUser");
+                            chmProxyAceptar = cartes.GetComponent<RPAWin32Component>("$ChromePrxIniciar");
+                            CheckAbort();
+                            chmProxyUser.Value = ProxyPassword.User;
+                            ProxyPassword.Write(chmProxyPsw);
+                            chmProxyAceptar.click();
+                            cartes.reset(chmProxy);
+                            NeverSavePassword(cartes.GetComponent<RPAWin32Component>("$ChromeSavePSW"));
+                            result = true;
+                            Thread.Sleep(250);
+                        }
+                    }
+                    finally
+                    {
+                        CR.ReleaseMutex();
                     }
                 }
-            }catch(Exception e)
+            }
+            catch (Exception e)
             {
                 forensic("ProcessBackGroundButtons.CheckProxy", e);
                 throw;
             }
+            return result;
         }
-        protected void ControlTab(DateTime timeout) // Close all the tabs until only one is left.
+        protected virtual bool SelectCertificate(CartesObj cartes, string certificate) /* If the window to choose digital certificate is visible,
+            this method chooses the indicated certificate and returns true. Otherwise, it returns false. */
         {
-            int borrardesde, final;
-            string route = string.Empty;
+            bool lbOK = false;
 
-            Balloon("Closing tabs...");
-            reset(chmTabs);
-            while ((chmTabs.dochild(route, "descendants") == "1") && !StringIn(chmTabs.dochild(route + "\\0", "idrole"), "37"))
+            CR.WaitOne();
+            try
             {
-                route = route + "\\0";
-                reset(chmTabs);
-            }
-            chmTabs.focus();
-            borrardesde = 1;
-            while (chmTabs.dochild(route + "\\" + borrardesde.ToString(), "idrole") == "37")
-            {
-                if (timeout < Now) throw new Exception("I can not close the tabs of Chrome.");
-                chmTabs.dochild(route + "\\" + borrardesde.ToString(), "click");
-                reset(chmTabs);
-                Thread.Sleep(500);
-                final = int.Parse(chmTabs.dochild(route + "\\" + borrardesde.ToString(), "descendants")) - 1;
-                while (!(final < 0) &&
-                       (chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "idrole") != "43") &&
-                       (chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "visible") != "1"))
+                if (GetOpenDigitalCertificateWindow(cartes.GetComponent<RPAWin32Component>("$ChromeCertificateTitle")))
                 {
-                    final = final - 1;
+                    RPAWin32Component chmCertificateGrid = null, chmCertificateOK = null, chmCertificateCancel = null;
+                    chmCertificateGrid = cartes.GetComponent<RPAWin32Component>("$ChromeCertificateGrid");
+                    chmCertificateOK = cartes.GetComponent<RPAWin32Component>("$ChromeCertificateOK");
+                    chmCertificateCancel = cartes.GetComponent<RPAWin32Component>("$ChromeCertificateCancel");
+                    string ls = ToString(certificate).ToLower();
+                    int i = 0;
+                    while ((i < chmCertificateGrid.descendants) && !lbOK)
+                    {
+                        var child = chmCertificateGrid.Child<RPAWin32Component>(i);
+                        if ((child.IdRole() == 28) && (ToString(child.dochild("\\0", "name")).ToLower() == ls))
+                        {
+                            RPAParameters parameter = new RPAParameters();
+                            parameter.itemAsInteger[0] = 1;
+                            child.dochild("\\0", "click", parameter);
+                            lbOK = true;
+                        }
+                        else i++;
+                    }
+                    if (lbOK) chmCertificateOK.click();
+                    else
+                    {
+                        string msg;
+                        chmCertificateCancel.click();
+                        if (ls.Length > 0) msg = "The \"" + certificate + "\" certificate is not present in the browser.";
+                        else msg = "You need a digital certificate to access this site.";
+                        cartes.balloon(msg);
+                        cartes.forensic(msg);
+                    }
+                    cartes.reset(chmCertificateGrid.api());
+                    chmCertificateGrid.ComponentNotExist(5);
                 }
-                Balloon("Closing tabs...");
-                if (!(final < 0)) chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "click");
-                else throw new Exception("Can't close tab.");
-                reset(chmTabs);
             }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
+            return lbOK;
         }
 
         public override void Close() // It closes Chrome.
@@ -237,8 +370,46 @@ namespace ChromeLib
             Execute("$cshChrome00 = new TChrome(" + Owner.Abort + ");\r\n" +
                     "$cshChrome00.closeAll();");
         }
-        public void OpenURL(string URL, params IRPAComponent[] Components) /* It opens the indicated web page. Components must be a list of components of the page
-              that indicates when the page has been loaded: for example, "$googlelogo". */
+        public virtual void SetDimensions(int Width, int Height) // It sets the dimensions to which the main window will be adjusted
+        {
+            try
+            {
+                if ((Width < 1) || (Height < 1))
+                    throw new Exception("The dimensions of a window cannot be less than 1 pixel.");
+                fWidth = Width;
+                fHeight = Height;
+            }
+            catch (Exception e)
+            {
+                forensic("Chrome::SetDimensions", e);
+                throw;
+            }
+        }
+        public virtual void AdjustWindow() /* The method must adjust the main window of the application to the dimensions indicated in the Width
+           and Height properties. */
+        {
+            AdjustWindow(chm, Width, Height);
+        }
+        public virtual bool GetProxyExists() // This method returns true if the proxy credentials window is visible.
+        {
+            return GetProxyExists(chmProxy, chmProxyPsw);
+        }
+        public virtual bool GetOpenDigitalCertificateWindow() // This method returns true if the Digital Certificate Window is visible.
+        {
+            bool result;
+            CR.WaitOne();
+            try
+            {
+                result = GetOpenDigitalCertificateWindow(chmCertificateTitle);
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
+            return result;
+        }
+        public virtual void OpenURL(string URL, params IRPAComponent[] Components) /* It opens the indicated web page. Components must be a list of components
+              of the page that indicates when the page has been loaded: for example, "$googlelogo". */
         {
             bool spread, exit, lbAdjust;
             DateTime timeout;
@@ -266,7 +437,7 @@ namespace ChromeLib
                             CR.WaitOne();
                             try
                             {
-                                if (GetProxyExists()) CheckProxy();
+                                if (GetProxyExists()) CheckProxy(cartes);
                                 else if (chmClose.ComponentExist() && chmCloseCRC.ComponentExist() &&
                                     ((ToString(chmClose.name()).Length > 0) || (ToString(chmCloseCRC.name()).Length > 0)) &&
                                     (!StringIn(ToString(chmClose.name()), "cerrar") || !StringIn(ToString(chmCloseCRC.name()), "cerrar"))
@@ -274,7 +445,7 @@ namespace ChromeLib
                                 {
                                     fSpanish = false;
                                     spread = true;
-                                    throw new Exception("ERROR! Your Chrome or your Windows are not in Spanish. This library learned in Spanish buttons.");
+                                    throw new MyException(EXIT_ERROR, "ERROR! Your Chrome or your Windows are not in Spanish. This library learned in Spanish buttons.");
                                 }
                                 else if (lbAdjust || ((Components != null) && ComponentsExist(0, Components)))
                                 {
@@ -284,8 +455,7 @@ namespace ChromeLib
                                         chrome.Show("restore");
                                     else
                                     {
-                                        chrome.Move(0, 0);
-                                        chrome.ReSize(985, 732);
+                                        AdjustWindow();
                                         ControlTab(timeout);
                                         exit = lbAdjust || ComponentsExist(0, Components);
                                     }
@@ -349,6 +519,7 @@ namespace ChromeLib
                     {
                         Balloon(e.Message);
                         if (spread) throw;
+                        else if (e is MyException me) throw me;
                         else
                         {
                             forensic("Chrome.OpenURL", e);
@@ -360,6 +531,51 @@ namespace ChromeLib
         public void OpenURL(string URL)
         {
             OpenURL(URL, null);
+        }
+        public void ControlTab(DateTime timeout) // Close all browser tabs until only one is left.
+        {
+            int borrardesde, final;
+            string route = string.Empty;
+
+            Balloon("Closing tabs...");
+            CR.WaitOne();
+            try
+            {
+                reset(chmTabs);
+                if (chmTabs.ComponentExist())
+                {
+                    while ((chmTabs.dochild(route, "ComponentExist") == "1") && (1 <= int.Parse(chmTabs.dochild(route, "descendants"))) && !StringIn(chmTabs.dochild(route + "\\0", "idrole"), "37"))
+                    {
+                        route = route + "\\0";
+                        reset(chmTabs);
+                    }
+                    chmTabs.focus();
+                    borrardesde = 1;
+                    while (chmTabs.dochild(route + "\\" + borrardesde.ToString(), "idrole") == "37")
+                    {
+                        if (timeout < Now) throw new Exception("I can not close the tabs of Chrome.");
+                        chmTabs.dochild(route + "\\" + borrardesde.ToString(), "click");
+                        reset(chmTabs);
+                        Thread.Sleep(500);
+                        CheckAbort();
+                        final = int.Parse(chmTabs.dochild(route + "\\" + borrardesde.ToString(), "descendants")) - 1;
+                        while (!(final < 0) &&
+                               (chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "idrole") != "43") &&
+                               (chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "visible") != "1"))
+                        {
+                            final = final - 1;
+                        }
+                        Balloon("Closing tabs...");
+                        if (!(final < 0)) chmTabs.dochild(route + "\\" + borrardesde + "\\" + final, "click");
+                        else throw new Exception("Can't close tab.");
+                        reset(chmTabs);
+                    }
+                }
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
         }
         public void Login(string email, string password) /* The indicated user is logged into Chrome. */
         {
@@ -382,7 +598,15 @@ namespace ChromeLib
                     "$cshChrome00.RefreshPage;");
         }
 
-        public bool Incognito
+        public int Width // Read only. The width to which the browser will wrap.
+        {
+            get { return GetWidth(); }
+        }
+        public int Height // Read only. The height to which the browser will wrap.
+        {
+            get { return GetHeight(); }
+        }
+        public bool Incognito // Read & write. If the browser opens in incognito mode
         {
             get { return GetIncognito(); }
             set { SetIncognito(value); }
@@ -391,6 +615,11 @@ namespace ChromeLib
         {
             get { return GetProxyPassword(); }
             set { SetProxyPassword(value); }
+        }
+        public string Certificate // It is the name of the digital certificate that you want to use to navigate.
+        {
+            get { return GetCertificate(); }
+            set { SetCertificate(value); }
         }
     }
 }

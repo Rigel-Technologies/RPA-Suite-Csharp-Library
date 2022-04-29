@@ -10,7 +10,6 @@ using System.Xml;
 using Microsoft.Win32;
 using System.Windows.Forms;
 using System.Linq;
-using System.Windows;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -146,7 +145,15 @@ namespace MiTools
         protected abstract bool GetIsSwarmExecution();
         protected virtual void reset(IRPAComponent component) // Reset the API of te component
         {
-            cartes.reset(component.api());
+            CR.WaitOne(); // Be careful, if you use concurrent threads, protect them with this critical region. Especially ...
+            try // ... the "reset" command.
+            {
+                cartes.reset(component);
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
         }
         protected bool isVariable(string VariableName)  // If a variable-component exists in the rpa project, returns true
         {
@@ -168,10 +175,18 @@ namespace MiTools
         {
             string result;
 
-            result = ToString(cartes.Execute(command));
-            if ((cartes.LastError() != null) && (cartes.LastError().Length > 0))
-                throw new Exception(cartes.LastError());
-            else if (result == null) return "";
+            CR.WaitOne(); // Be careful, if you use concurrent threads, protect them with this critical region. Especially ...
+            try // ... the "reset" command.
+            {
+                result = ToString(cartes.Execute(command));
+                if ((cartes.LastError() != null) && (cartes.LastError().Length > 0))
+                    throw new Exception(cartes.LastError());
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
+            if (result == null) return "";
             else return result;
         }
         protected virtual string CartesScriptExecute(string command)
@@ -182,18 +197,34 @@ namespace MiTools
         {
             bool ok;
 
-            if (fLastBalloon.Value == message)
-                ok = fLastBalloon.Key < DateTime.Now.AddSeconds(-10);
-            else ok = true;
-            if (ok)
+            CR.WaitOne();
+            try
             {
-                cartes.balloon(message);
-                fLastBalloon = new KeyValuePair<DateTime, string>(DateTime.Now, message);
+                if (fLastBalloon.Value == message)
+                    ok = fLastBalloon.Key < DateTime.Now.AddSeconds(-10);
+                else ok = true;
+                if (ok)
+                {
+                    cartes.balloon(message);
+                    fLastBalloon = new KeyValuePair<DateTime, string>(DateTime.Now, message);
+                }
+            }
+            finally
+            {
+                CR.ReleaseMutex();
             }
         }
         protected virtual new void forensic(string message) // It writes "message" in the swarm log and in the windows event viewer.
         {
-            cartes.forensic(message);
+            CR.WaitOne();
+            try
+            {
+                cartes.forensic(message);
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
         }
         protected virtual new void forensic(string message, Exception e)
         {
@@ -246,8 +277,18 @@ namespace MiTools
                         {
                             if (timeout < DateTime.Now) exit = true;
                             Thread.Sleep(400);
-                            foreach(string api in lAPI)
-                                cartes.reset(api);
+                            foreach (string api in lAPI)
+                            {
+                                CR.WaitOne(); // Be careful, if you use concurrent threads, protect them with this critical region. Especially ...
+                                try // ... the "reset" command.
+                                {
+                                    cartes.reset(api);
+                                }
+                                finally
+                                {
+                                    CR.ReleaseMutex();
+                                }
+                            }
                         }
                     } while (!exit);
                 }
@@ -524,6 +565,7 @@ namespace MiTools
         {
             return Convert.ToDouble(value, getDoubleFormatProvider());
         }
+        public delegate bool MeetsCriteria(); // If the criteria is satisfied, this prototype must return true, otherwise return false.
         public abstract void SendWarning(string subject, string body); /* Sends the notice to the email account assigned to the running
           swarm process. If you don't run a swarm process, the function ignores the warning. */
         public abstract void SendEmail(string to, string subject, string body); // It sends an email. To do this, it uses the configured email account on the RPA Server.
@@ -687,6 +729,8 @@ namespace MiTools
         }
         protected override CartesObj getCartes()
         {
+            CartesObj resultado;
+
             if (fCartes == null)
             {
                 CR.WaitOne();
@@ -727,7 +771,16 @@ namespace MiTools
                     CR.ReleaseMutex();
                 }
             }
-            return fCartes;
+            CR.WaitOne();
+            try
+            {
+                resultado = fCartes;
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
+            return resultado;
         }
         protected override string getCartesPath()  
         {
@@ -798,7 +851,7 @@ namespace MiTools
         }
         protected override bool GetIsAborting() 
         {
-            return (Abort.Length > 0) && (cartes.Execute(Abort + ".value;") == "1");
+            return (Abort.Length > 0) && (Execute(Abort + ".value;") == "1");
         }
         protected virtual int GetApis()
         {
@@ -839,7 +892,15 @@ namespace MiTools
             int result, counter;
             try
             {
-                result = cartes.RegisterIteration(start, typify, data, screenShot ? 1 : 0);
+                CR.WaitOne();
+                try
+                {
+                    result = cartes.RegisterIteration(start, typify, data, screenShot ? 1 : 0);
+                }
+                finally
+                {
+                    CR.ReleaseMutex();
+                }
             }
             finally
             {
@@ -1223,13 +1284,17 @@ namespace MiTools
             IRPAComponent lpC = component;
             credential.Write((RPAComponent)lpC);
         }
-        public static T GetComponent<T>(this CartesObj cartesObj, string variablename) where T : class, IRPAComponent
+        public static T GetComponent<T>(this CartesObj cartes, string variablename) where T : class, IRPAComponent
         {
-            IRPAComponent component = cartesObj.component(variablename);
+            IRPAComponent component = cartes.component(variablename);
 
             if (component == null) return null;
             else if (component is T result) return result;
             else throw new Exception(variablename + " is a " + component.ActiveXClass());
+        }
+        public static void reset(this CartesObj cartes, IRPAComponent component)
+        {
+            cartes.reset(component.api());
         }
         public static bool ComponentExist(this IRPAComponent component, int TimeOut = 0)
         {
@@ -1337,6 +1402,18 @@ namespace MiTools
         public static string dochild(this IRPAComponent component, string route, string method)
         {
             return component.dochild(route, method, null);
+        }
+        public static string dochild(this IRPAComponent component, string route, string method, params string[] parameters)
+        {
+            RPAParameters List = new RPAParameters();
+
+            foreach (string item in parameters)
+                List.item[List.items] = item;
+            return component.dochild(route, method, List);
+        }
+        public static string dochild(this IRPAComponent component, string route, string method, int parameter)
+        {
+            return component.dochild(route, method, parameter.ToString());
         }
         public static void click(this IRPAWin32Component component)
         {

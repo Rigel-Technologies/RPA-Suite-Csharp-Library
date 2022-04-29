@@ -48,8 +48,6 @@ namespace RPABaseAPI
             vsWindow = null;
         }
 
-       
-
         public override void Close()
         {
             bool exit;
