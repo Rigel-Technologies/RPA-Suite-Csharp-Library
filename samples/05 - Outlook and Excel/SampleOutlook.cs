@@ -97,8 +97,11 @@ namespace Outlook_and_Excel
                         while (row <= folder.Items.Count) // I show all the emails
                         {
                             CheckAbort();
-                            Outlook.MailItem mail = folder.Items[row];
-                            Balloon(folder.Name + LF + mail.SenderEmailAddress + LF + mail.Subject);
+                            dynamic item = folder.Items[row];
+                            if (item is Outlook.MailItem mail)
+                                Balloon(folder.Name + LF + mail.SenderEmailAddress + LF + mail.Subject);
+                            else if (item is Outlook.ReportItem report)
+                                Balloon(folder.Name + LF + report.Subject);
                             row++;
                             j++;
                         }
