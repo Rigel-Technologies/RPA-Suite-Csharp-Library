@@ -39,6 +39,7 @@ namespace Miscellaneous
             IExplorer MBrowser = IExplorer;
             RPAWin32Component crmlogo = GetComponent<RPAWin32Component>("$ChrmRigelLogo");
 
+            LoopForever = true;
             GBrowser.Incognito = false;
             GBrowser.OpenURL("www.rigeltechnologies.net", crmlogo);
             MBrowser.OpenURL("www.rigeltechnologies.net", "$IExplrRigelLogo");

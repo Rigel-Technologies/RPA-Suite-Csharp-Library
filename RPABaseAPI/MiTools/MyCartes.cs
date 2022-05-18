@@ -417,21 +417,47 @@ namespace MiTools
             }
             return dresult;
         }
-        protected virtual void AdjustWindow(IRPAWin32Component component, int width, int height) // Adjusts the main component window to the indicated size.
+        protected virtual void AdjustWindow(IRPAWin32Component component, int x, int y, int width, int height) // Adjusts the component main window to the indicated size and coordinates.
         {
             CR.WaitOne();
             try
             {
-                RPAWin32Component lpWindow = component.Root();
-
-                if (lpWindow.ComponentExist())
+                if (component.ComponentExist())
                 {
+                    RPAWin32Component lpWindow = component.Root();
+
                     if (StringIn(lpWindow.WindowState, "Minimized", "Maximized") || (lpWindow.Visible == 0))
                         lpWindow.Show("Restore");
                     if ((lpWindow.width != width) || (lpWindow.height != height))
                         lpWindow.ReSize(width, height);
-                    if ((lpWindow.x != 0) || (lpWindow.y != 0))
-                        lpWindow.Move(0, 0);
+                    if ((lpWindow.x != x) || (lpWindow.y != y))
+                        lpWindow.Move(x, y);
+                }
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
+        }
+        protected void AdjustWindow(IRPAWin32Component component, int width, int height) // Adjusts the component main window to the indicated size.
+        {
+            AdjustWindow(component, 0, 0, width, height);
+        }
+        protected void CenterWindow(IRPAWin32Component component, int width, int height) // Center the component's main window
+        {
+            CR.WaitOne();
+            try
+            {
+                if (component.ComponentExist())
+                {
+                    RPAWin32Component lpWindow = component.Root();
+                    if (StringIn(lpWindow.WindowState, "Minimized", "Maximized") || (lpWindow.Visible == 0))
+                        lpWindow.Show("Restore");
+                    Screen pantalla = Screen.FromHandle((IntPtr)lpWindow.handle());
+                    Rectangle Position = pantalla.WorkingArea;
+                    int x = Position.X + (Position.Width - width) / 2,
+                        y = Position.Y + (Position.Height - height) / 2;
+                    AdjustWindow(lpWindow, x, y, width, height);
                 }
             }
             finally
@@ -1452,21 +1478,20 @@ namespace MiTools
             try
             {
                 if (TimeOut <= 0) result = !component.ComponentExist(TimeOut);
+                else if (!component.ComponentExist(1)) result = true;
                 else
                 {
                     DateTime timeout = DateTime.Now.AddSeconds(TimeOut);
                     while (!result)
                     {
-                        if (!component.ComponentExist(TimeOut)) result = true;
+                        GlobalCartes.reset(component.api());
+                        if (!component.ComponentExist(1)) result = true;
                         else if (timeout < DateTime.Now) break;
-                        else
-                        {
-                            GlobalCartes.reset(component.api());
-                            Thread.Sleep(250);
-                        }
+                        else Thread.Sleep(250);
                     }
                 }
-            }catch(Exception e)
+            }
+            catch(Exception e)
             {
                 MyObject.Coroner.write("CartesObjExtensions.ComponentNotExist", e);
                 throw;

@@ -385,6 +385,10 @@ namespace OutlookLib
                 }
             return resultado;
         }
+        public bool ProcessMailFrom(string folder, ProcessMail processor, bool subfolders = false)
+        {
+            return ProcessMailFrom(GetFolder(folder), processor, subfolders);
+        }
 
         public bool VisibleMode
         {
