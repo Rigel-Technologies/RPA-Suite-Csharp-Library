@@ -111,9 +111,11 @@ namespace OutlookLib
                     {
                         if (fOutlook == null)
                         {
-                            fOutlook = new Outlook.Application();
                             reset(OutlookMain);
                             fPreviuos = OutlookMain.ComponentExist();
+                            if (fPreviuos && (StringIn(OutlookMain.WindowState, "Minimized", "Maximized") || (OutlookMain.Visible == 0)))
+                                    OutlookMain.Show("Restore");
+                            fOutlook = new Outlook.Application();
                             InitThread();
                             if (!fPreviuos && VisibleMode)
                                 Inbox.Display();
