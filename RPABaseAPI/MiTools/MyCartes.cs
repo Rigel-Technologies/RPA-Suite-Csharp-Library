@@ -10,13 +10,12 @@ using System.Xml;
 using Microsoft.Win32;
 using System.Windows.Forms;
 using System.Linq;
-using System.Windows;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 
 //////////////////////
-// 2021/08/19
+// 2022/05/18
 //////////////////////
 
 namespace MiTools
@@ -60,7 +59,7 @@ namespace MiTools
             }
             catch (Exception e)
             {
-                forensic(ClassName + ".UnMergeLibrariesAndUnLoadVariables", e);
+                forensic("MyCartes.UnMergeLibrariesAndUnLoadVariables", e);
                 if (e is MyException pp) throw;
                 else throw new MyException(EXIT_UNMERGE_KO, "I cannot unload the " + ClassName + " library" + LF + e.Message);
             }
@@ -120,7 +119,7 @@ namespace MiTools
         }
         protected virtual string getNeededRPASuiteVersion() // It returns a string with the version of RPA Suite needed by this library
         {
-            return "3.3.6.0";
+            return "3.4.2.1";
         }
         protected virtual void CheckRPASuiteVersion() // It checks if the current version and needed are OK
         {
@@ -146,7 +145,15 @@ namespace MiTools
         protected abstract bool GetIsSwarmExecution();
         protected virtual void reset(IRPAComponent component) // Reset the API of te component
         {
-            cartes.reset(component.api());
+            CR.WaitOne(); // Be careful, if you use concurrent threads, protect them with this critical region. Especially ...
+            try // ... the "reset" command.
+            {
+                cartes.reset(component);
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
         }
         protected bool isVariable(string VariableName)  // If a variable-component exists in the rpa project, returns true
         {
@@ -168,11 +175,18 @@ namespace MiTools
         {
             string result;
 
-            result = ToString(cartes.Execute(command));
-            if ((cartes.LastError() != null) && (cartes.LastError().Length > 0))
-                throw new Exception(cartes.LastError());
-            else if (result == null) return "";
-            else return result;
+            CR.WaitOne(); // Be careful, if you use concurrent threads, protect them with this critical region. Especially ...
+            try // ... the "reset" command.
+            {
+                result = ToString(cartes.Execute(command));
+                if ((cartes.LastError() != null) && (cartes.LastError().Length > 0))
+                    throw new Exception(cartes.LastError());
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
+            return result;
         }
         protected virtual string CartesScriptExecute(string command)
         {
@@ -182,18 +196,34 @@ namespace MiTools
         {
             bool ok;
 
-            if (fLastBalloon.Value == message)
-                ok = fLastBalloon.Key < DateTime.Now.AddSeconds(-10);
-            else ok = true;
-            if (ok)
+            CR.WaitOne();
+            try
             {
-                cartes.balloon(message);
-                fLastBalloon = new KeyValuePair<DateTime, string>(DateTime.Now, message);
+                if (fLastBalloon.Value == message)
+                    ok = fLastBalloon.Key < DateTime.Now.AddSeconds(-10);
+                else ok = message != string.Empty;
+                if (ok)
+                {
+                    cartes.balloon(message);
+                    fLastBalloon = new KeyValuePair<DateTime, string>(DateTime.Now, message);
+                }
+            }
+            finally
+            {
+                CR.ReleaseMutex();
             }
         }
         protected virtual new void forensic(string message) // It writes "message" in the swarm log and in the windows event viewer.
         {
-            cartes.forensic(message);
+            CR.WaitOne();
+            try
+            {
+                cartes.forensic(message);
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
         }
         protected virtual new void forensic(string message, Exception e)
         {
@@ -246,8 +276,18 @@ namespace MiTools
                         {
                             if (timeout < DateTime.Now) exit = true;
                             Thread.Sleep(400);
-                            foreach(string api in lAPI)
-                                cartes.reset(api);
+                            foreach (string api in lAPI)
+                            {
+                                CR.WaitOne(); // Be careful, if you use concurrent threads, protect them with this critical region. Especially ...
+                                try // ... the "reset" command.
+                                {
+                                    cartes.reset(api);
+                                }
+                                finally
+                                {
+                                    CR.ReleaseMutex();
+                                }
+                            }
                         }
                     } while (!exit);
                 }
@@ -292,55 +332,69 @@ namespace MiTools
             RPAParameters parameters = new RPAParameters();
             string path = string.Empty;
 
-            do
+            void RecuperarRuta()
             {
-                root = component.Root();
-                if (root != null)
+                do
                 {
-                    path = component.route();
-                    break;
-                }
-                else if (timeout < DateTime.Now) throw new Exception("I can't assign the value \"" + value + "\" to the component.");
-                else
+                    root = component.Root();
+                    if (root != null)
+                    {
+                        path = component.route();
+                        break;
+                    }
+                    else if (timeout < DateTime.Now) throw new Exception("I can't assign the value \"" + value + "\" to the component.");
+                    else
+                    {
+                        reset(component);
+                        CheckAbort();
+                        Thread.Sleep(1000);
+                    }
+                } while (true);
+            }
+
+            CR.WaitOne();
+            try
+            {
+                RecuperarRuta();
+                do
                 {
-                    reset(component);
+                    parameters.clear();
+                    if (typed)
+                        try
+                        {
+                            parameters.item[0] = value;
+                            parameters.itemAsInteger[1] = 0;
+                            parameters.itemAsInteger[2] = 0;
+                            root.dochild(path, "TypeFromClipboard", parameters);
+                        }
+                        catch
+                        {
+                            parameters.item[0] = value;
+                            parameters.itemAsInteger[1] = 0;
+                            parameters.itemAsInteger[2] = 0;
+                            root.dochild(path, "TypeWord", parameters);
+                        }
+                    else
+                    {
+                        parameters.item[0] = value;
+                        root.dochild(path, "Value", parameters);
+                    }
                     CheckAbort();
                     Thread.Sleep(1000);
-                }
-            } while (true);
-            do
+                    reset(component);
+                    if (ToString(root.dochild(path, "Value")).ToLower() == value.ToLower()) break;
+                    else
+                    {
+                        if (timeout < DateTime.Now) throw new Exception("I can't assign the value \"" + value + "\" to the component.");
+                        else RecuperarRuta(); // Prrfff!!! Unbelievable
+                        Thread.Sleep(1000);
+                    }
+                } while (true);
+            }
+            finally
             {
-                parameters.clear();
-                if (typed)
-                    try
-                    {
-                        parameters.item[0] = value;
-                        parameters.itemAsInteger[1] = 0;
-                        parameters.itemAsInteger[2] = 0;
-                        root.dochild(path, "TypeFromClipboard", parameters);
-                    }
-                    catch
-                    {
-                        parameters.item[0] = value;
-                        parameters.itemAsInteger[1] = 0;
-                        parameters.itemAsInteger[2] = 0;
-                        root.dochild(path, "TypeWord", parameters);
-                    }
-                else
-                {
-                    parameters.item[0] = value;
-                    root.dochild(path, "Value", parameters);
-                }
-                CheckAbort();
-                Thread.Sleep(1000);
-                reset(component);
-                if (ToString(root.dochild(path, "Value")).ToLower() == value.ToLower()) break;
-                else
-                {
-                    if (timeout < DateTime.Now) throw new Exception("I can't assign the value \"" + value + "\" to the component.");
-                    Thread.Sleep(1000);
-                }
-            } while (true);
+                CR.ReleaseMutex();
+            }
         }
         protected virtual double SimilarStrings(string a, string b)
         {
@@ -363,18 +417,52 @@ namespace MiTools
             }
             return dresult;
         }
-        protected virtual void AdjustWindow(IRPAWin32Component component, int width, int height) // Adjusts the main component window to the indicated size.
+        protected virtual void AdjustWindow(IRPAWin32Component component, int x, int y, int width, int height) // Adjusts the component main window to the indicated size and coordinates.
         {
-            RPAWin32Component lpWindow = component.Root();
-
-            if (lpWindow.ComponentExist())
+            CR.WaitOne();
+            try
             {
-                if (StringIn(lpWindow.WindowState, "Minimized", "Maximized") || (lpWindow.Visible == 0))
-                    lpWindow.Show("Restore");
-                if ((lpWindow.width != width) || (lpWindow.height != height))
-                    lpWindow.ReSize(width, height);
-                if ((lpWindow.x != 0) || (lpWindow.y != 0))
-                    lpWindow.Move(0, 0);
+                if (component.ComponentExist())
+                {
+                    RPAWin32Component lpWindow = component.Root();
+
+                    if (StringIn(lpWindow.WindowState, "Minimized", "Maximized") || (lpWindow.Visible == 0))
+                        lpWindow.Show("Restore");
+                    if ((lpWindow.width != width) || (lpWindow.height != height))
+                        lpWindow.ReSize(width, height);
+                    if ((lpWindow.x != x) || (lpWindow.y != y))
+                        lpWindow.Move(x, y);
+                }
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
+        }
+        protected void AdjustWindow(IRPAWin32Component component, int width, int height) // Adjusts the component main window to the indicated size.
+        {
+            AdjustWindow(component, 0, 0, width, height);
+        }
+        protected void CenterWindow(IRPAWin32Component component, int width, int height) // Center the component's main window
+        {
+            CR.WaitOne();
+            try
+            {
+                if (component.ComponentExist())
+                {
+                    RPAWin32Component lpWindow = component.Root();
+                    if (StringIn(lpWindow.WindowState, "Minimized", "Maximized") || (lpWindow.Visible == 0))
+                        lpWindow.Show("Restore");
+                    Screen pantalla = Screen.FromHandle((IntPtr)lpWindow.handle());
+                    Rectangle Position = pantalla.WorkingArea;
+                    int x = Position.X + (Position.Width - width) / 2,
+                        y = Position.Y + (Position.Height - height) / 2;
+                    AdjustWindow(lpWindow, x, y, width, height);
+                }
+            }
+            finally
+            {
+                CR.ReleaseMutex();
             }
         }
         protected virtual void CloseWindow(DateTime timeout, IRPAWin32Component CloseButton, string name) // Press the button until it disappears. "name" is the name of the window.
@@ -524,6 +612,8 @@ namespace MiTools
         {
             return Convert.ToDouble(value, getDoubleFormatProvider());
         }
+        public abstract void WaitFor(int seconds); // It waits the indicated seconds, except if the process is aborted or the swarm asks it to finish.
+        public delegate bool MeetsCriteria(); // If the criteria is satisfied, this prototype must return true, otherwise return false.
         public abstract void SendWarning(string subject, string body); /* Sends the notice to the email account assigned to the running
           swarm process. If you don't run a swarm process, the function ignores the warning. */
         public abstract void SendEmail(string to, string subject, string body); // It sends an email. To do this, it uses the configured email account on the RPA Server.
@@ -580,11 +670,12 @@ namespace MiTools
     public abstract class MyCartesProcess : MyCartes // This abstract class allows you to create processes using APIS from MyCartesAPI.
     {
         public enum ProcessState { rest, starting, iterating, ending }; // The process must exist in some of these execution states.
+        public enum SwarmCommand { none, execute, finish };
         protected const string EXIT_SETTINGS_KO = "Settings_" + EXIT_ERROR;
         private static string fCartesPath = null;
-        private static Mutex fRC = new Mutex();
         private static CartesObj fCartes = null;
         private ProcessState fState;
+        private SwarmCommand fSCommando;
         private bool fAllowSendReport;
         private DateTime fStart;
         private Dictionary<string, int> fTypifycationsCounter = null;
@@ -592,7 +683,7 @@ namespace MiTools
         private string fAbort; // Cartes Script Variable for know when the process musts abort
         private List<MyCartesAPI> apis;
         private string fFileSettings;
-        private bool fShowAbort, fVisibleMode, fExecuting;
+        private bool fShowAbort, fVisibleMode, fExecuting, fLoopForever;
         private RPADataString frpaAbort = null;
         protected SmtpClient fSMTP;
 
@@ -627,6 +718,7 @@ namespace MiTools
         public MyCartesProcess(string csvAbort) : base()  // "csvAbort" is a Cartes variable that when valid one will indicate to the instance that it must abort.
         {
             fState = ProcessState.rest;
+            fSCommando = SwarmCommand.none;
             fAllowSendReport = true;
             fStart = DateTime.Now;
             fTypifycationsCounter = new Dictionary<string, int>();
@@ -637,6 +729,7 @@ namespace MiTools
             fShowAbort = true;
             fVisibleMode = true;
             fExecuting = false;
+            fLoopForever = false;
             fSMTP = null;
         }
 
@@ -680,13 +773,33 @@ namespace MiTools
                 else throw new MyException(EXIT_SETTINGS_KO, "Loading settings:" + LF + e.Message);
             }
         }
+        private SwarmCommand GetSCommando()
+        {
+            SwarmCommand result;
+
+            switch (cartes.SwarmContinuity)
+            {
+                case 2:
+                    result = SwarmCommand.finish;
+                    break;
+                case 1:
+                    result = SwarmCommand.execute;
+                    break;
+                default:
+                    result = SwarmCommand.none;
+                    break;
+            }
+            return result;
+        }
 
         protected override Mutex GetRC()
         {
-            return fRC;
+            return CartesObjExtensions.CR;
         }
         protected override CartesObj getCartes()
         {
+            CartesObj resultado;
+
             if (fCartes == null)
             {
                 CR.WaitOne();
@@ -727,7 +840,16 @@ namespace MiTools
                     CR.ReleaseMutex();
                 }
             }
-            return fCartes;
+            CR.WaitOne();
+            try
+            {
+                resultado = fCartes;
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
+            return resultado;
         }
         protected override string getCartesPath()  
         {
@@ -798,7 +920,7 @@ namespace MiTools
         }
         protected override bool GetIsAborting() 
         {
-            return (Abort.Length > 0) && (cartes.Execute(Abort + ".value;") == "1");
+            return (Abort.Length > 0) && (Execute(Abort + ".value;") == "1");
         }
         protected virtual int GetApis()
         {
@@ -839,7 +961,17 @@ namespace MiTools
             int result, counter;
             try
             {
-                result = cartes.RegisterIteration(start, typify, data, screenShot ? 1 : 0);
+                CR.WaitOne();
+                try
+                {
+                    result = cartes.RegisterIteration(start, typify, data, screenShot ? 1 : 0);
+                    if (result == 2) fSCommando = SwarmCommand.finish;
+                    else fSCommando = SwarmCommand.execute;
+                }
+                finally
+                {
+                    CR.ReleaseMutex();
+                }
             }
             finally
             {
@@ -851,6 +983,23 @@ namespace MiTools
                     SendReport(fStart, State, fTypifycationsCounter, fTypifycations);
             }
             return result;
+        }
+        protected virtual void SwarmDelay()
+        {
+            CR.WaitOne();
+            try
+            {
+                if (IsSwarmExecution)
+                {
+                    cartes.swarmdelaydefault();
+                    WaitFor(50);
+                    fSCommando = SwarmCommand.finish;
+                }
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
         }
         protected virtual void SendReport(DateTime start, ProcessState state, Dictionary<string, int> TypifycationsCounter, List<string> Typifycations)
         /* This method is used to send execution status reports to the email enabled in the RPA Center as recipient of the warnings.
@@ -904,6 +1053,12 @@ namespace MiTools
                 Close();
         }
 
+        public override void WaitFor(int seconds)
+        {
+            DateTime timeout = Now.AddSeconds(seconds);
+            while ((Now < timeout) && !IsAborting && (Command != SwarmCommand.finish))
+                Thread.Sleep(125);
+        }
         public override void SendWarning(string subject, string body)
         {
             cartes.SendWarning(ToString(subject), ToString(body));
@@ -928,6 +1083,35 @@ namespace MiTools
             bool enter = false;
             Mutex mutex = null;
 
+            void TratarCatch (Exception e)
+            {
+                MyException mye;
+
+                Balloon(e.Message);
+                forensic(e.Message);
+                if (e is MyException m) mye = m;
+                else mye = new MyException(EXIT_ERROR, e.Message);
+                try
+                {
+                    if (mye.code == EXIT_SETTINGS_KO)
+                        RegisterIteration(start, EXIT_SETTINGS_KO, "<task>\r\n" +
+                                                        "  <error>I can not load the configuration file \"" + SettingsFile + "\"</error>\r\n" +
+                                                        "  <message>" + e.Message + "</message>\r\n" +
+                                                        "</task>");
+                    else
+                        RegisterIteration(start, mye.code, "<task>\r\n" +
+                                                        "  <data>" + e.Message + "</data>\r\n" +
+                                                        "</task>", true);
+                }
+                catch (Exception e2)
+                {
+                    Coroner.write("MyCartesProcess::Execute", e);
+                    Coroner.write("MyCartesProcess::Execute", e2);
+                    forensic("MyCartesProcess::Execute" + LF + "Unexpected communication failure with RPA Server.", e2);
+                    throw;
+                }
+            }
+
             try
             {
                 mutex = new Mutex(true, "Processing area of \"RPA Suite\".", out enter);
@@ -936,6 +1120,7 @@ namespace MiTools
                     if (enter)
                     {
                         fState = ProcessState.starting;
+                        fSCommando = SwarmCommand.execute;
                         try
                         {
                             fStart = DateTime.Now;
@@ -943,7 +1128,8 @@ namespace MiTools
                             fTypifycationsCounter.Clear();
                             fTypifycations.Clear();
                             CheckRPASuiteVersion();
-                            Balloon("I'm opening the project...");
+                            if (IsDebug) Balloon("Attention: This run is in debug mode.");
+                            else Balloon("I'm opening the project...");
                             lsMainFile = RPAMainFile;
                             if (File.Exists(CurrentPath + "\\" + lsMainFile)) cartes.open(CurrentPath + "\\" + lsMainFile);
                             else if (File.Exists(CurrentPath + "\\Cartes\\" + lsMainFile)) cartes.open(CurrentPath + "\\Cartes\\" + lsMainFile);
@@ -951,11 +1137,10 @@ namespace MiTools
                             try
                             {
                                 fExecuting = true;
-                                Balloon(Name);
                                 try
                                 {
-                                    Balloon("Reading settings...");
                                     MergeLibrariesAndLoadVariables();
+                                    Balloon("Reading settings...");
                                     LoadConfiguration();
                                     Balloon(Name);
                                     try
@@ -966,12 +1151,37 @@ namespace MiTools
                                         {
                                             if (DoInit())
                                             {
+                                                bool exit;
                                                 if (ShowAbort && (frpaAbort != null))
                                                     ShowAbortDialog(frpaAbort);
                                                 if (AllowSendReports)
                                                     SendReport(fStart, State, fTypifycationsCounter, fTypifycations);
+                                                exit = false;
                                                 fState = ProcessState.iterating;
-                                                DoExecute(ref start);
+                                                do
+                                                {
+                                                    try
+                                                    {
+                                                        DoExecute(ref start);
+                                                    }
+                                                    catch(Exception e)
+                                                    {
+                                                        if (LoopForever)
+                                                        {
+                                                            TratarCatch(e);
+                                                            try
+                                                            {
+                                                                Close();
+                                                            }
+                                                            catch { }
+                                                        }
+                                                        else throw;
+                                                    }
+                                                    if (!LoopForever) exit = true;
+                                                    else if (Command == SwarmCommand.finish) exit = true;
+                                                    else if (IsAborting) exit = true;
+                                                    else start = DateTime.Now;
+                                                } while (!exit);
                                             }
                                         }
                                         finally
@@ -984,39 +1194,15 @@ namespace MiTools
                                     {
                                         if (VisibleMode)
                                             Execute("visualmode(0);");
+                                        if (AllowSendReports)
+                                            SendReport(fStart, State, fTypifycationsCounter, fTypifycations);
                                     }
                                     Balloon("\"" + Name + "\" is over.");
-                                    if (AllowSendReports)
-                                        SendReport(fStart, State, fTypifycationsCounter, fTypifycations);
                                 }
                                 catch (Exception e)
                                 {
-                                    MyException mye;
-
                                     fState = ProcessState.ending;
-                                    Balloon(e.Message);
-                                    forensic(e.Message);
-                                    if (e is MyException m) mye = m;
-                                    else mye = new MyException(EXIT_ERROR, e.Message);
-                                    try
-                                    {
-                                        if (mye.code == EXIT_SETTINGS_KO)
-                                            RegisterIteration(start, EXIT_SETTINGS_KO, "<task>\r\n" +
-                                                                            "  <error>I can not load the configuration file \"" + SettingsFile + "\"</error>\r\n" +
-                                                                            "  <message>" + e.Message + "</message>\r\n" +
-                                                                            "</task>");
-                                        else
-                                            RegisterIteration(start, mye.code, "<task>\r\n" +
-                                                                            "  <data>" + e.Message + "</data>\r\n" +
-                                                                            "</task>", true);
-                                    }
-                                    catch (Exception e2)
-                                    {
-                                        Coroner.write("MyCartesProcess::Execute", e);
-                                        Coroner.write("MyCartesProcess::Execute", e2);
-                                        forensic("MyCartesProcess::Execute" + LF + "Unexpected communication failure with RPA Server.", e2);
-                                        throw;
-                                    }
+                                    TratarCatch(e);
                                 }
                             }
                             finally
@@ -1034,14 +1220,17 @@ namespace MiTools
                         }
                         finally
                         {
+                            fSCommando = SwarmCommand.none;
                             fState = ProcessState.rest;
                         }
                         result = true;
                     }
                     else
                     {
-                        string message = "Process \"" + Name + "\" is already running." + LF +
-                                         "You will not run another process until it finishes.";
+                        string sname = Name,
+                               message = "You will not run another process until it finishes.";
+                        if (0 < sname.Length) message = "Process \"" + sname + "\" is already running." + LF + message;
+                        else message = "There is already a process running." + LF + message;
                         Balloon(message);
                         forensic(message);
                     }
@@ -1080,15 +1269,21 @@ namespace MiTools
             }
         }
 
-        public ProcessState State
+        public bool LoopForever
         {
-            get { return fState; }
-        } // Read Only. The property returns the state of the process
+            get { return fLoopForever; }
+            set { fLoopForever = value; }
+        } // Read & Write. The execution of the process will be repeated over and over again until it is aborted or the swarm asks to leave.
         public bool AllowSendReports
         {
             get { return fAllowSendReport; }
             set { fAllowSendReport = value; }
         } // Read & Write. The process will send execution status reports to the email enabled in the RPA Center.
+        public bool VisibleMode
+        {
+            get { return fVisibleMode; }
+            set { fVisibleMode = value; }
+        } // Read & Write. It controls the visible mode of Carte. 
         public string SettingsFile
         {
             get
@@ -1099,20 +1294,23 @@ namespace MiTools
             }
             set { fFileSettings = value; }
         } // Read & Write
-        public string Abort
-        {
-            get { return fAbort; }
-        }  // Read Only. The property returns the name of the variable used for the abort control.
         public bool ShowAbort
         {
             get { return fShowAbort; }
             set { fShowAbort = value; }
         } // Read & Write. It controls the appearance of the window to abort. 
-        public bool VisibleMode
+        public string Abort
         {
-            get { return fVisibleMode; }
-            set { fVisibleMode = value; }
-        } // Read & Write. It controls the visible mode of Carte. 
+            get { return fAbort; }
+        }  // Read Only. The property returns the name of the variable used for the abort control.
+        public ProcessState State
+        {
+            get { return fState; }
+        } // Read Only. The property returns the state of the process
+        public SwarmCommand Command
+        {
+            get { return GetSCommando(); }
+        } // Read Only. The order received by the swarm
         public string RPAMainFile
         {
             get { return getRPAMainFile(); }
@@ -1184,6 +1382,10 @@ namespace MiTools
         {
             return Owner.ToDouble(value);
         }
+        public override void WaitFor(int seconds)
+        {
+            Owner.WaitFor(seconds);
+        }
         public override void SendWarning(string subject, string body)
         {
             Owner.SendWarning(subject, body);
@@ -1203,7 +1405,7 @@ namespace MiTools
     public static class CartesObjExtensions
     {
         internal static CartesObj GlobalCartes = null;
-
+        private static Mutex gRC = new Mutex();
         private static T Casting<T>(IRPAComponent component) where T : class, IRPAComponent
         {
             try
@@ -1218,18 +1420,62 @@ namespace MiTools
                 throw;
             }
         }
+
+        public static Mutex CR // A golbal instance of Mutex to control the critical regions in competition.
+        {
+            get { return gRC; }
+        }
         public static void Write(this ICredentialStack credential, IRPAWin32Component component)
         {
             IRPAComponent lpC = component;
             credential.Write((RPAComponent)lpC);
         }
-        public static T GetComponent<T>(this CartesObj cartesObj, string variablename) where T : class, IRPAComponent
+        public static T GetComponent<T>(this CartesObj cartes, string variablename) where T : class, IRPAComponent
         {
-            IRPAComponent component = cartesObj.component(variablename);
+            IRPAComponent component = cartes.component(variablename);
 
             if (component == null) return null;
             else if (component is T result) return result;
             else throw new Exception(variablename + " is a " + component.ActiveXClass());
+        }
+        public static void reset(this CartesObj cartes, IRPAComponent component)
+        {
+            if (component != null)
+            {
+                CR.WaitOne();
+                try
+                {
+                    string api = component.api();
+                    cartes.reset(api);
+                }
+                finally
+                {
+                    CR.ReleaseMutex();
+                }
+            }
+        }
+        public static bool isVariable(this CartesObj cartes, string VariableName) // If a variable-component exists in the rpa project, returns true
+        {
+            bool resultado;
+            CR.WaitOne();
+            try
+            {
+                try
+                {
+                    resultado = MyObject.ToString(cartes.Execute("isVariable(\"" + VariableName + "\");")) == "1";
+                    if ((cartes.LastError() != null) && (cartes.LastError().Length > 0))
+                        throw new Exception(cartes.LastError());
+                }
+                catch
+                {
+                    resultado = false;
+                }
+            }
+            finally
+            {
+                CR.ReleaseMutex();
+            }
+            return resultado;
         }
         public static bool ComponentExist(this IRPAComponent component, int TimeOut = 0)
         {
@@ -1250,21 +1496,20 @@ namespace MiTools
             try
             {
                 if (TimeOut <= 0) result = !component.ComponentExist(TimeOut);
+                else if (!component.ComponentExist(1)) result = true;
                 else
                 {
                     DateTime timeout = DateTime.Now.AddSeconds(TimeOut);
                     while (!result)
                     {
-                        if (!component.ComponentExist(TimeOut)) result = true;
+                        GlobalCartes.reset(component.api());
+                        if (!component.ComponentExist(1)) result = true;
                         else if (timeout < DateTime.Now) break;
-                        else
-                        {
-                            GlobalCartes.reset(component.api());
-                            Thread.Sleep(250);
-                        }
+                        else Thread.Sleep(250);
                     }
                 }
-            }catch(Exception e)
+            }
+            catch(Exception e)
             {
                 MyObject.Coroner.write("CartesObjExtensions.ComponentNotExist", e);
                 throw;
@@ -1337,6 +1582,18 @@ namespace MiTools
         public static string dochild(this IRPAComponent component, string route, string method)
         {
             return component.dochild(route, method, null);
+        }
+        public static string dochild(this IRPAComponent component, string route, string method, params string[] parameters)
+        {
+            RPAParameters List = new RPAParameters();
+
+            foreach (string item in parameters)
+                List.item[List.items] = item;
+            return component.dochild(route, method, List);
+        }
+        public static string dochild(this IRPAComponent component, string route, string method, int parameter)
+        {
+            return component.dochild(route, method, parameter.ToString());
         }
         public static void click(this IRPAWin32Component component)
         {

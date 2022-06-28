@@ -55,11 +55,14 @@ namespace ImagesOCR
                                                     "HEIGHT : " + output.item[4] + "\r\n" +
                                                     "INDEX  : " + output.item[5] + "\r\n");
                     // I use the OCR directly on the screen with zoom
-                    MessageBox.Show(notepadeditor.RecognitionRatio(language, 1.3, 1));
+                    string message = notepadeditor.RecognitionRatio(language, 1.3, 1);
+                    MessageBox.Show(message);
                     // I use the OCR in an image file
                     Thread.Sleep(2000);
                     notepadeditor.focus();
                     notepadeditor.SaveRectToFile(imageCloseButton);
+                    message = "$OCR = new OCR;\r\n" +
+                                   "ShowMessage($OCR.run(\"" + imageCloseButton + "\", \"" + language + "\"));\r\n";
                     cartes.Execute("$OCR = new OCR;\r\n" +
                                    "ShowMessage($OCR.run(\"" + imageCloseButton + "\", \"" + language + "\"));\r\n");
                     // Closing...

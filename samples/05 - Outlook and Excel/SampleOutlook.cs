@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,57 +58,68 @@ namespace Outlook_and_Excel
                 Excel.Workbook wb = objExl.Workbooks.Open(ExcelFile, false, ReadOnly);
                 try
                 {
-                    Excel.Worksheet xlWorkSheet;
-
-                    xlWorkSheet = wb.Worksheets.get_Item(1);
-                    Outlook.VisibleMode = true;
-                    // I go through Excel to send all the emails
-                    lbExit = false;
-                    row = 2;
-                    do
+                    Excel.Worksheet xlWorkSheet = wb.Worksheets.get_Item(1);
+                    try
                     {
-                        CheckAbort();
-                        EmailTo = ToString(xlWorkSheet.Cells[row, "A"].Text).Trim();
-                        if (EmailTo.Length == 0) lbExit = true;
-                        else
-                        {
-                            Balloon(EmailTo);
-                            EmailSubject = ToString(xlWorkSheet.Cells[row, "B"].Text).Trim();
-                            EmailMessage = ToString(xlWorkSheet.Cells[row, "C"].Text).Trim();
-                            Outlook.SendEmail(EmailTo, EmailSubject, EmailMessage);
-                        }
-                        row++;
-                    } while (!lbExit);
-                    // I go through all the emails in the inbox
-                    List<Outlook.MAPIFolder> folders = new List<Outlook.MAPIFolder>();
-                    folders.Add(Outlook.Inbox);
-                    j = 0;
-                    i = 0;
-                    while ((i < folders.Count) && (j < 200))
-                    {
-                        CheckAbort();
-                        Outlook.MAPIFolder folder = folders.ElementAt(i);
-                        row = 1; 
-                        while (row <= folder.Folders.Count) // I add all the folders
-                        {
-                            folders.Add(Outlook.Inbox.Folders[row]);
-                            row++;
-                        }
-                        row = 1;
-                        while (row <= folder.Items.Count) // I show all the emails
+                        Outlook.VisibleMode = true;
+                        // I go through Excel to send all the emails
+                        lbExit = false;
+                        row = 2;
+                        do
                         {
                             CheckAbort();
-                            Outlook.MailItem mail = folder.Items[row];
-                            Balloon(folder.Name + LF + mail.SenderEmailAddress + LF + mail.Subject);
+                            EmailTo = ToString(xlWorkSheet.Cells[row, "A"].Text).Trim();
+                            if (EmailTo.Length == 0) lbExit = true;
+                            else
+                            {
+                                Balloon(EmailTo);
+                                EmailSubject = ToString(xlWorkSheet.Cells[row, "B"].Text).Trim();
+                                EmailMessage = ToString(xlWorkSheet.Cells[row, "C"].Text).Trim();
+                                Outlook.SendEmail(EmailTo, EmailSubject, EmailMessage);
+                            }
                             row++;
-                            j++;
+                        } while (!lbExit);
+                        // I go through all the emails in the inbox
+                        List<Outlook.MAPIFolder> folders = new List<Outlook.MAPIFolder>();
+                        folders.Add(Outlook.Inbox);
+                        j = 0;
+                        i = 0;
+                        while ((i < folders.Count) && (j < 200))
+                        {
+                            CheckAbort();
+                            Outlook.MAPIFolder folder = folders.ElementAt(i);
+                            row = 1;
+                            while (row <= folder.Folders.Count) // I add all the folders
+                            {
+                                folders.Add(Outlook.Inbox.Folders[row]);
+                                row++;
+                            }
+                            row = 1;
+                            while (row <= folder.Items.Count) // I show all the emails
+                            {
+                                CheckAbort();
+                                dynamic item = folder.Items[row];
+                                if (item is Outlook.MailItem mail)
+                                    Balloon(folder.Name + LF + mail.SenderEmailAddress + LF + mail.Subject);
+                                else if (item is Outlook.ReportItem report)
+                                    Balloon(folder.Name + LF + report.Subject);
+                                row++;
+                                j++;
+                            }
+                            i++;
                         }
-                        i++;
+                    }
+                    finally
+                    {
+                        Marshal.FinalReleaseComObject(xlWorkSheet);
+                        xlWorkSheet = null;
                     }
                 }
                 finally
                 {
                     wb.Close(false);
+                    Marshal.FinalReleaseComObject(wb);
+                    wb = null;
                 }
             }
             finally
@@ -118,7 +130,13 @@ namespace Outlook_and_Excel
                 }
                 finally
                 {
-                    try { objExl.Quit(); } catch { }
+                    try
+                    {
+                        objExl.Quit();
+                        Marshal.FinalReleaseComObject(objExl);
+                        objExl = null;
+                    }
+                    catch { }
                 }
             }
         }

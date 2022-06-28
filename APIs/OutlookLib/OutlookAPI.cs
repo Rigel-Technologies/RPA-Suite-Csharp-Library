@@ -2,11 +2,8 @@
 using MiTools;
 using RPABaseAPI;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 using Outlook = Microsoft.Office.Interop.Outlook;
 
 namespace OutlookLib
@@ -19,8 +16,6 @@ namespace OutlookLib
         private Thread fThStack = null;
         private bool fPreviuos, fVisibleMode;
         private RPAWin32Component OutlookMain = null;
-        private RPAWin32Automation OutlookAllowBtnES = null;
-        private RPAWin32CheckRadioButton OutlookAllowAccessES = null;
 
         public OutlookAPI(MyCartesProcess owner) : base(owner)
         {
@@ -33,26 +28,61 @@ namespace OutlookLib
         }
         ~OutlookAPI()
         {
-            CR.WaitOne();
             try
             {
-                fThStack = null;
-                if (!fPreviuos && (fOutlook != null)) Close();
-                else
+                CR.WaitOne();
+                try
                 {
-                    fDeleted = null;
-                    fInbox = null;
-                    fSpace = null;
-                    fOutlook = null;
-                    fPreviuos = false;
+                    fThStack = null;
+                    if (fOutlook != null)
+                    {
+                        if (!fPreviuos) Close();
+                        else
+                        {
+                            Annul(ref fDeleted);
+                            Annul(ref fInbox);
+                            Annul(ref fSpace);
+                            Annul(ref fOutlook);
+                            fPreviuos = false;
+                        }
+                    }
+                }
+                finally
+                {
+                    CR.ReleaseMutex();
                 }
             }
-            finally
+            catch (Exception e)
             {
-                CR.ReleaseMutex();
+                forensic("OutlookAPI.~OutlookAPI", e);
+                throw;
             }
         }
 
+        private void Annul(ref Outlook.Application value)
+        {
+            if (value != null)
+            {
+                Marshal.FinalReleaseComObject(value);
+                value = null;
+            }
+        }
+        private void Annul(ref Outlook.NameSpace value)
+        {
+            if (value != null)
+            {
+                Marshal.FinalReleaseComObject(value);
+                value = null;
+            }
+        }
+        private void Annul(ref Outlook.MAPIFolder value)
+        {
+            if (value != null)
+            {
+                Marshal.FinalReleaseComObject(value);
+                value = null;
+            }
+        }
         private void InitThread()
         {
             CR.WaitOne();
@@ -81,9 +111,11 @@ namespace OutlookLib
                     {
                         if (fOutlook == null)
                         {
-                            fOutlook = new Outlook.Application();
                             reset(OutlookMain);
                             fPreviuos = OutlookMain.ComponentExist();
+                            if (fPreviuos && (StringIn(OutlookMain.WindowState, "Minimized", "Maximized") || (OutlookMain.Visible == 0)))
+                                    OutlookMain.Show("Restore");
+                            fOutlook = new Outlook.Application();
                             InitThread();
                             if (!fPreviuos && VisibleMode)
                                 Inbox.Display();
@@ -155,50 +187,74 @@ namespace OutlookLib
                 if (cartes.merge(CurrentPath + "\\Cartes\\Outlook.cartes.rpa") != 1)
                     throw new Exception("I cannot load the Outlook library");
                 OutlookMain = GetComponent<RPAWin32Component>("$OutlookMain");
-                OutlookAllowBtnES = GetComponent<RPAWin32Automation>("$OutlookAllowES");
-                OutlookAllowAccessES = GetComponent<RPAWin32CheckRadioButton>("$OutlookAllowAccessES");
             }
         }
         protected override void UnMergeLibrariesAndUnLoadVariables()
         {
             try
             {
-                fThStack = null;
+                try
+                {
+                    fThStack = null;
+                }
+                finally
+                {
+                    if (!fPreviuos && (OutlookMain != null))
+                        Close();
+                    OutlookMain = null;
+                }
             }
-            finally
+            catch (Exception e)
             {
-                if (!fPreviuos && (OutlookMain != null))
-                    Close();
-                OutlookMain = null;
+                forensic("OutlookAPI.UnMergeLibrariesAndUnLoadVariables", e);
+                throw;
             }
+        }
+        protected override string getNeededRPASuiteVersion() 
+        {
+            return "3.4.2.1";
         }
         protected virtual void ProcessBackGroundButtons() /* This is the method of a thread responsible for clicking the
             buttons that allow access to Outlook from DCOM. */
         {
+            var Cartes = new CartesObj();
+            RPAWin32Automation OutlookAllowBtnES = null;
+            RPAWin32CheckRadioButton OutlookAllowAccessES = null;
+            bool Ready = false;
             DateTime timereset = DateTime.Now.AddSeconds(30);
+
             while (fThStack != null)
             {
                 try
                 {
-                    CR.WaitOne();
-                    try
+                    if (true && (Ready || Cartes.isVariable("$OutlookMain")))
                     {
-                        if (OutlookAllowBtnES.ComponentExist() && (OutlookAllowBtnES.enabled() != 0) &&
-                            StringIn(OutlookAllowBtnES.name(), "permitir", "allow"))
+                        if (OutlookAllowAccessES == null)
                         {
-                            if (OutlookAllowAccessES.ComponentExist())
-                                OutlookAllowAccessES.Checked = 1;
-                            OutlookAllowBtnES.click();
+                            OutlookAllowBtnES = Cartes.GetComponent<RPAWin32Automation>("$OutlookAllowES");
+                            OutlookAllowAccessES = Cartes.GetComponent<RPAWin32CheckRadioButton>("$OutlookAllowAccessES");
                         }
-                        else if (timereset < DateTime.Now)
+                        Ready = true;
+                        CR.WaitOne();
+                        try
                         {
-                            reset(OutlookAllowBtnES);
-                            timereset = DateTime.Now.AddSeconds(30);
+                            if (OutlookAllowBtnES.ComponentExist() && (OutlookAllowBtnES.enabled() != 0) &&
+                                StringIn(OutlookAllowBtnES.name(), "permitir", "allow"))
+                            {
+                                if (OutlookAllowAccessES.ComponentExist())
+                                    OutlookAllowAccessES.Checked = 1;
+                                OutlookAllowBtnES.click();
+                            }
+                            else if (timereset < DateTime.Now)
+                            {
+                                Cartes.reset(OutlookAllowBtnES);
+                                timereset = DateTime.Now.AddSeconds(30);
+                            }
                         }
-                    }
-                    finally
-                    {
-                        CR.ReleaseMutex();
+                        finally
+                        {
+                            CR.ReleaseMutex();
+                        }
                     }
                 }
                 catch (Exception e)
@@ -217,43 +273,123 @@ namespace OutlookLib
             get { return GetSpace(); }
         }
 
+        public delegate bool ProcessMail(Outlook.MailItem mail);
         public override void Close()
         {
-            CR.WaitOne();
             try
             {
-                Application.Quit();
-                fThStack = null;
-                fDeleted = null;
-                fInbox = null;
-                fSpace = null;
-                fOutlook = null;
-                fPreviuos = false;
+                CR.WaitOne();
+                try
+                {
+                    if (fOutlook != null)
+                    {
+                        fThStack = null;
+                        Annul(ref fDeleted);
+                        Annul(ref fInbox);
+                        Annul(ref fSpace);
+                        fOutlook.Quit();
+                        Annul(ref fOutlook);
+                        fPreviuos = false;
+                    }
+                }
+                finally
+                {
+                    CR.ReleaseMutex();
+                }
             }
-            finally
+            catch (Exception e)
             {
-                CR.ReleaseMutex();
+                forensic("OutlookAPI.Close", e);
+                throw;
             }
+        }
+        public override void SendEmail(string to, string subject, string body)
+        {
+            try
+            {
+                if (to.Length == 0) throw new Exception("The empty string is not a valid email address.");
+                Outlook.MailItem mailItem = NewEmail();
+                mailItem.Subject = subject;
+                mailItem.Body = body;
+                mailItem.To = to;
+                mailItem.Send();
+            }
+            catch (Exception e)
+            {
+                forensic("OutlookAPI.SendEmail", e);
+                throw;
+            }
+        }
+        public virtual Outlook.MAPIFolder GetFolder(string folder) /* Returns the working folder that matches the specified
+            path. You can use the split bar to indicate a routing. For example: bots@acme.net/inbox */
+        {
+            string[] path = folder.ToLower().Replace('/', '\\').Split("\\", StringSplitOptions.None);
+
+            Outlook.MAPIFolder Find(Outlook.Folders carpeta, int indice)
+            {
+                Outlook.MAPIFolder resultado = null;
+
+                int i = 1;
+                while ((i <= carpeta.Count) && (resultado == null))
+                {
+                    Outlook.MAPIFolder subcarpeta = carpeta[i];
+                    if (ToString(subcarpeta.Name).ToLower() == path[indice])
+                    {
+                        if (indice == path.Length - 1) resultado = subcarpeta;
+                        else resultado = Find(subcarpeta.Folders, indice + 1);
+                    }
+                    i++;
+                }
+                return resultado;
+            }
+            return Find(Folders, 0);
         }
         public virtual Outlook.MailItem NewEmail()
         {
             return Application.CreateItem(Outlook.OlItemType.olMailItem);
         }
-        public virtual void SendEmail(string EmailTo, string EmailSubject, string EmailMessage)
+        public virtual bool ProcessMailFrom(Outlook.MAPIFolder folder, ProcessMail processor, bool subfolders = false) /* The method
+            will call the "processor" function with all the mails in the folder while "processor" returns true. If "subfolder"
+            is true it will include the subfolders. The method will return the value returned in the last call to "processor". */
         {
-            try
-            {
-                if (EmailTo.Length == 0) throw new Exception("The empty string is not a valid email address.");
-                Outlook.MailItem mailItem = NewEmail();
-                mailItem.Subject = EmailSubject;
-                mailItem.Body = EmailMessage;
-                mailItem.To = EmailTo;
-                mailItem.Send();
-            }catch(Exception e)
-            {
-                forensic("OutlookAPI.SendEmail", e);
-                throw;
-            }
+            bool resultado;
+            int i;
+
+            resultado = true;
+            if ((folder != null) && (processor != null)) try
+                {
+                    i = folder.Items.Count; // It is very important to start with the last email. If the email is deleted, the count would be lost going forward.
+                    while ((0 < i) && resultado && !IsAborting)
+                    {
+                        dynamic item = folder.Items[i];
+                        if (item is Outlook.MailItem mail)
+                            resultado = processor(mail);
+                        else if (item is Outlook.ReportItem report)
+                        {
+                            // Nothing to do
+                        }
+                        i--;
+                    }
+                    if (subfolders)
+                    {
+                        i = 1;
+                        while ((i <= folder.Folders.Count) && resultado && !IsAborting)
+                        {
+                            resultado = ProcessMailFrom(folder.Folders[i], processor, subfolders);
+                            i++;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    forensic("OutlookAPI.ProcessMailFrom", ex);
+                    throw;
+                }
+            return resultado;
+        }
+        public bool ProcessMailFrom(string folder, ProcessMail processor, bool subfolders = false)
+        {
+            return ProcessMailFrom(GetFolder(folder), processor, subfolders);
         }
 
         public bool VisibleMode

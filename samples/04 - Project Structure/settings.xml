@@ -2,10 +2,13 @@
   <message>Hello %user%. I'm Cartes, the intelligent robot of RPA Suite.
 This example shows how to create processes using C# libraries with Cartes.
 
-     1 - Create a class library (.NET Framework) with a class to handle the application.
+     1 - Download RPA Suite C# Library from
+         https://github.com/Rigel-Technologies/RPA-Suite-Csharp-Library.
+
+     2 - Create a class library (.NET Framework) with a class to handle the application.
          Inherited from MyCartesAPIBase.
          
-     2 - Create a Windows Forms application (.NET Framework) and delete the form. Create a
+     3 - Create a Windows Forms application (.NET Framework) and delete the form. Create a
          class that implements the process, inherited from MyCartesProcessBase.
   </message>
 </demo>

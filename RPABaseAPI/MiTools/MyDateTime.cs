@@ -238,6 +238,16 @@ namespace MiTools
         {
             return MyDateTime.SetFromFormat(formato, valor);
         }
+        public static DateTime Minimum(this DateTime a, DateTime b)
+        {
+            if (a < b) return a;
+            else return b;
+        }
+        public static DateTime Maximum(this DateTime a, DateTime b)
+        {
+            if (a < b) return b;
+            else return a;
+        }
     }
 
     public static class MyInt
