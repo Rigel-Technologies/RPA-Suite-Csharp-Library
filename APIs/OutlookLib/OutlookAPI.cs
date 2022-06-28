@@ -212,7 +212,7 @@ namespace OutlookLib
         }
         protected override string getNeededRPASuiteVersion() 
         {
-            return "3.4.2.0";
+            return "3.4.2.1";
         }
         protected virtual void ProcessBackGroundButtons() /* This is the method of a thread responsible for clicking the
             buttons that allow access to Outlook from DCOM. */

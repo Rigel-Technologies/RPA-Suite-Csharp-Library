@@ -15,7 +15,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 
 //////////////////////
-// 2021/08/19
+// 2022/05/18
 //////////////////////
 
 namespace MiTools
@@ -119,7 +119,7 @@ namespace MiTools
         }
         protected virtual string getNeededRPASuiteVersion() // It returns a string with the version of RPA Suite needed by this library
         {
-            return "3.3.6.0";
+            return "3.4.2.1";
         }
         protected virtual void CheckRPASuiteVersion() // It checks if the current version and needed are OK
         {
@@ -773,6 +773,24 @@ namespace MiTools
                 else throw new MyException(EXIT_SETTINGS_KO, "Loading settings:" + LF + e.Message);
             }
         }
+        private SwarmCommand GetSCommando()
+        {
+            SwarmCommand result;
+
+            switch (cartes.SwarmContinuity)
+            {
+                case 2:
+                    result = SwarmCommand.finish;
+                    break;
+                case 1:
+                    result = SwarmCommand.execute;
+                    break;
+                default:
+                    result = SwarmCommand.none;
+                    break;
+            }
+            return result;
+        }
 
         protected override Mutex GetRC()
         {
@@ -1291,7 +1309,7 @@ namespace MiTools
         } // Read Only. The property returns the state of the process
         public SwarmCommand Command
         {
-            get { return fSCommando; }
+            get { return GetSCommando(); }
         } // Read Only. The order received by the swarm
         public string RPAMainFile
         {

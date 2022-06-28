@@ -43,6 +43,8 @@ namespace Miscellaneous
             GBrowser.Incognito = false;
             GBrowser.OpenURL("www.rigeltechnologies.net", crmlogo);
             MBrowser.OpenURL("www.rigeltechnologies.net", "$IExplrRigelLogo");
+            Balloon("Browsers are already open");
+            WaitFor(5);
         }
         protected Chrome GetChrome()
         {

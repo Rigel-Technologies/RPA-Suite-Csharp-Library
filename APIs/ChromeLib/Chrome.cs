@@ -204,6 +204,15 @@ namespace ChromeLib
                 InitTask();
             }
         }
+        protected override void UnMergeLibrariesAndUnLoadVariables()
+        {
+            fTh = null;
+            base.UnMergeLibrariesAndUnLoadVariables();
+        }
+        protected override string getNeededRPASuiteVersion()
+        {
+            return "3.4.2.1";
+        }
         protected virtual int GetHeight()
         {
             return fHeight;
