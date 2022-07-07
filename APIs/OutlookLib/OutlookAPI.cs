@@ -359,7 +359,7 @@ namespace OutlookLib
             if ((folder != null) && (processor != null)) try
                 {
                     i = folder.Items.Count; // It is very important to start with the last email. If the email is deleted, the count would be lost going forward.
-                    while ((0 < i) && resultado && !IsAborting)
+                    while ((0 < i) && resultado && !IsAborting && (Command != SwarmCommand.finish))
                     {
                         dynamic item = folder.Items[i];
                         if (item is Outlook.MailItem mail)
@@ -373,7 +373,7 @@ namespace OutlookLib
                     if (subfolders)
                     {
                         i = 1;
-                        while ((i <= folder.Folders.Count) && resultado && !IsAborting)
+                        while ((i <= folder.Folders.Count) && resultado && !IsAborting && (Command != SwarmCommand.finish))
                         {
                             resultado = ProcessMailFrom(folder.Folders[i], processor, subfolders);
                             i++;

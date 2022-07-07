@@ -15,13 +15,14 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 
 //////////////////////
-// 2022/05/18
+// 2022/07/06
 //////////////////////
 
 namespace MiTools
 {
     public abstract class MyCartes : MyObject // This abstract class is the basis for working and grouping methods for Cartes.
     {
+        public enum SwarmCommand { none, execute, finish };
         protected const string EXIT_ABORT = "Abort";
         protected const string EXIT_ERROR = "KO";
         private const string EXIT_MERGE_KO = "LOADING_" + EXIT_ERROR;
@@ -142,6 +143,7 @@ namespace MiTools
         {
             return ToString(Execute("Name;"));
         }
+        protected abstract SwarmCommand GetSCommando();
         protected abstract bool GetIsSwarmExecution();
         protected virtual void reset(IRPAComponent component) // Reset the API of te component
         {
@@ -657,6 +659,10 @@ namespace MiTools
         {
             get { return GetIsSwarmExecution(); }
         } // Read Only. It returns true if the execution of the current process has been commanded by the swarm
+        public SwarmCommand Command
+        {
+            get { return GetSCommando(); }
+        } // Read Only. The order received by the swarm
         public bool IsAborting // Read. The method returns true if abort has been requested
         {
             get { return GetIsAborting(); }
@@ -670,7 +676,6 @@ namespace MiTools
     public abstract class MyCartesProcess : MyCartes // This abstract class allows you to create processes using APIS from MyCartesAPI.
     {
         public enum ProcessState { rest, starting, iterating, ending }; // The process must exist in some of these execution states.
-        public enum SwarmCommand { none, execute, finish };
         protected const string EXIT_SETTINGS_KO = "Settings_" + EXIT_ERROR;
         private static string fCartesPath = null;
         private static CartesObj fCartes = null;
@@ -772,24 +777,6 @@ namespace MiTools
                 if (e is MyException m) throw m;
                 else throw new MyException(EXIT_SETTINGS_KO, "Loading settings:" + LF + e.Message);
             }
-        }
-        private SwarmCommand GetSCommando()
-        {
-            SwarmCommand result;
-
-            switch (cartes.SwarmContinuity)
-            {
-                case 2:
-                    result = SwarmCommand.finish;
-                    break;
-                case 1:
-                    result = SwarmCommand.execute;
-                    break;
-                default:
-                    result = SwarmCommand.none;
-                    break;
-            }
-            return result;
         }
 
         protected override Mutex GetRC()
@@ -910,6 +897,24 @@ namespace MiTools
             }catch(Exception e)
             {
                 forensic("MyCartesForensic.GetIsSwarmExecution", e);
+            }
+            return result;
+        }
+        protected override SwarmCommand GetSCommando()
+        {
+            SwarmCommand result;
+
+            switch (cartes.SwarmContinuity)
+            {
+                case 2:
+                    result = SwarmCommand.finish;
+                    break;
+                case 1:
+                    result = SwarmCommand.execute;
+                    break;
+                default:
+                    result = SwarmCommand.none;
+                    break;
             }
             return result;
         }
@@ -1307,10 +1312,6 @@ namespace MiTools
         {
             get { return fState; }
         } // Read Only. The property returns the state of the process
-        public SwarmCommand Command
-        {
-            get { return GetSCommando(); }
-        } // Read Only. The order received by the swarm
         public string RPAMainFile
         {
             get { return getRPAMainFile(); }
@@ -1364,6 +1365,10 @@ namespace MiTools
         protected override bool GetIsSwarmExecution()
         {
             return Owner.IsSwarmExecution;
+        }
+        protected override SwarmCommand GetSCommando()
+        {
+            return Owner.Command;
         }
         protected override void CheckAbort()
         {

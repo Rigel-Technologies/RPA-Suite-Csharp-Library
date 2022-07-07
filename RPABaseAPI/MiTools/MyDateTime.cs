@@ -225,10 +225,25 @@ namespace MiTools
             }
             catch (Exception e)
             {
-                MyObject.Coroner.write("MyDateTime.SetFromFormatt(string, string)", e);
+                MyObject.Coroner.write("MyDateTime.SetFromFormat(string, string)", e);
                 throw;
             }
             return resultado;
+        }
+        public static bool TryParse(string format, string value, out DateTime date)
+        {
+            bool result = false;
+
+            try
+            {
+                date = SetFromFormat(format, value);
+                result = true;
+            }
+            catch
+            {
+                date = DateTime.Today;
+            }
+            return result;
         }
         public static string FormatDateTime(this MyObject a, string formato, DateTime value)
         {
