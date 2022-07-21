@@ -143,7 +143,7 @@ namespace MiTools
         {
             return ToString(Execute("Name;"));
         }
-        protected abstract SwarmCommand GetSCommando();
+        protected abstract SwarmCommand GetSCommand();
         protected abstract bool GetIsSwarmExecution();
         protected virtual void reset(IRPAComponent component) // Reset the API of te component
         {
@@ -181,7 +181,7 @@ namespace MiTools
             try // ... the "reset" command.
             {
                 result = ToString(cartes.Execute(command));
-                if ((cartes.LastError() != null) && (cartes.LastError().Length > 0))
+                if (ToString(cartes.LastError()).Length > 0)
                     throw new Exception(cartes.LastError());
             }
             finally
@@ -661,7 +661,7 @@ namespace MiTools
         } // Read Only. It returns true if the execution of the current process has been commanded by the swarm
         public SwarmCommand Command
         {
-            get { return GetSCommando(); }
+            get { return GetSCommand(); }
         } // Read Only. The order received by the swarm
         public bool IsAborting // Read. The method returns true if abort has been requested
         {
@@ -680,7 +680,7 @@ namespace MiTools
         private static string fCartesPath = null;
         private static CartesObj fCartes = null;
         private ProcessState fState;
-        private SwarmCommand fSCommando;
+        private SwarmCommand fSCommand;
         private bool fAllowSendReport;
         private DateTime fStart;
         private Dictionary<string, int> fTypifycationsCounter = null;
@@ -723,7 +723,7 @@ namespace MiTools
         public MyCartesProcess(string csvAbort) : base()  // "csvAbort" is a Cartes variable that when valid one will indicate to the instance that it must abort.
         {
             fState = ProcessState.rest;
-            fSCommando = SwarmCommand.none;
+            fSCommand = SwarmCommand.none;
             fAllowSendReport = true;
             fStart = DateTime.Now;
             fTypifycationsCounter = new Dictionary<string, int>();
@@ -900,9 +900,9 @@ namespace MiTools
             }
             return result;
         }
-        protected override SwarmCommand GetSCommando()
+        protected override SwarmCommand GetSCommand()
         {
-            SwarmCommand result;
+            SwarmCommand result = fSCommand;
 
             switch (cartes.SwarmContinuity)
             {
@@ -970,8 +970,8 @@ namespace MiTools
                 try
                 {
                     result = cartes.RegisterIteration(start, typify, data, screenShot ? 1 : 0);
-                    if (result == 2) fSCommando = SwarmCommand.finish;
-                    else fSCommando = SwarmCommand.execute;
+                    if (result == 2) fSCommand = SwarmCommand.finish;
+                    else fSCommand = SwarmCommand.execute;
                 }
                 finally
                 {
@@ -998,7 +998,7 @@ namespace MiTools
                 {
                     cartes.swarmdelaydefault();
                     WaitFor(50);
-                    fSCommando = SwarmCommand.finish;
+                    fSCommand = SwarmCommand.finish;
                 }
             }
             finally
@@ -1060,9 +1060,17 @@ namespace MiTools
 
         public override void WaitFor(int seconds)
         {
-            DateTime timeout = Now.AddSeconds(seconds);
+            DateTime timeout = Now.AddSeconds(seconds), lifesignal = Now.AddSeconds(10);
+            
             while ((Now < timeout) && !IsAborting && (Command != SwarmCommand.finish))
+            {
+                if (lifesignal < Now)
+                {
+                    Execute("SendLifeSignal;");
+                    lifesignal = Now.AddSeconds(60);
+                }
                 Thread.Sleep(125);
+            }
         }
         public override void SendWarning(string subject, string body)
         {
@@ -1125,7 +1133,7 @@ namespace MiTools
                     if (enter)
                     {
                         fState = ProcessState.starting;
-                        fSCommando = SwarmCommand.execute;
+                        fSCommand = SwarmCommand.execute;
                         try
                         {
                             fStart = DateTime.Now;
@@ -1225,7 +1233,7 @@ namespace MiTools
                         }
                         finally
                         {
-                            fSCommando = SwarmCommand.none;
+                            fSCommand = SwarmCommand.none;
                             fState = ProcessState.rest;
                         }
                         result = true;
@@ -1366,7 +1374,7 @@ namespace MiTools
         {
             return Owner.IsSwarmExecution;
         }
-        protected override SwarmCommand GetSCommando()
+        protected override SwarmCommand GetSCommand()
         {
             return Owner.Command;
         }
