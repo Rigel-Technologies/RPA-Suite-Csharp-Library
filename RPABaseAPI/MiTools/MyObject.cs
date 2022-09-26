@@ -230,22 +230,19 @@ namespace MiTools
                 string result = "";
 
                 foreach (KeyValuePair<string, int> pair in dtsi)
-                {
                     result += pair.Key + "=" + pair.Value.ToString() + LF;
-                }
                 return result;
             }
-            else if (value is string[] ast) return ConcatenateSpecial(ast, ", ");
-            else if (value is ICollection<string> ics)
+            else if (value is IEnumerable<KeyValuePair<string, object>> dtoi)
             {
                 string result = "";
 
-                foreach (string item in ics)
-                {
-                    result += item + LF;
-                }
+                foreach (KeyValuePair<string, object> pair in dtoi)
+                    result += pair.Key + "=" + ToString(pair.Value) + LF;
                 return result;
             }
+            else if (value is string[] ast) return ConcatenateSpecial(ast, ", ");
+            else if (value is IEnumerable<string> ies) return ies.Concatenate(", ");
             else return value.ToString();
         }
         public static bool ToBool(string text) // It converts to bool
@@ -488,6 +485,13 @@ namespace MiTools
         public static string Concatenate(this string[] instance, string separator)
         {
             return MyObject.ConcatenateSpecial(instance, separator);
+        }
+        public static string Concatenate(this IEnumerable<string> instance, string separator)
+        {
+            string result = string.Empty;
+            foreach (var item in instance)
+                result = MyObject.ConcatenateSpecial(result, separator, item);
+            return result;
         }
         public static String[] Split(this string a, String separator, StringSplitOptions options)
         {
