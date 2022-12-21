@@ -1656,6 +1656,12 @@ namespace MiTools
         {
             component.DoubleClickOnImage(MoveMouse, ImageFiles.ToArray());
         }
+        public static bool GetReadOnly(this IRPAWin32Component component)
+        {
+            int ro = 64;
+
+            return ((component.IdSituation() & ro) == ro);
+        }
         public static bool Inside(this IRPAWin32Component root, IRPAWin32Component child) // Returns true if the screen coordinates of "child" are within "root".
         {
             return ((root.x <= child.x) && (child.x + child.width <= root.x + root.width)) &&
