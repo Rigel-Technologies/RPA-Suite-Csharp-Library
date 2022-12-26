@@ -1664,23 +1664,31 @@ namespace MiTools
         }
         public static bool Inside(this IRPAWin32Component root, IRPAWin32Component child) // Returns true if the screen coordinates of "child" are within "root".
         {
-            return ((root.x <= child.x) && (child.x + child.width <= root.x + root.width)) &&
-                ((root.y <= child.y) && (child.y + child.height <= root.y + root.height));
+            if (root.ComponentExist() && child.ComponentExist())
+                return ((root.x <= child.x) && (child.x + child.width <= root.x + root.width)) &&
+                    ((root.y <= child.y) && (child.y + child.height <= root.y + root.height));
+            else return false;
         }
         public static bool Inside(this IRPAJava32Component root, IRPAJava32Component child)
         {
-            return ((root.x <= child.x) && (child.x + child.width <= root.x + root.width)) &&
-                ((root.y <= child.y) && (child.y + child.height <= root.y + root.height));
+            if (root.ComponentExist() && child.ComponentExist())
+                return ((root.x <= child.x) && (child.x + child.width <= root.x + root.width)) &&
+                    ((root.y <= child.y) && (child.y + child.height <= root.y + root.height));
+            else return false;
         }
         public static bool Inside(this IRPASapControl root, IRPASapControl child)
         {
-            return ((root.x() <= child.x()) && (child.x() + child.width() <= root.x() + root.width())) &&
-                ((root.y() <= child.y()) && (child.y() + child.height() <= root.y() + root.height()));
+            if (root.ComponentExist() && child.ComponentExist())
+                return ((root.x() <= child.x()) && (child.x() + child.width() <= root.x() + root.width())) &&
+                    ((root.y() <= child.y()) && (child.y() + child.height() <= root.y() + root.height()));
+            else return false;
         }
         public static bool Inside(this IRPAMSHTMLComponent root, IRPAMSHTMLComponent child)
         {
-            return ((root.x() <= child.x()) && (child.x() + child.width() <= root.x() + root.width())) &&
-                ((root.y() <= child.y()) && (child.y() + child.height() <= root.y() + root.height()));
+            if (root.ComponentExist() && child.ComponentExist())
+                return ((root.x() <= child.x()) && (child.x() + child.width() <= root.x() + root.width())) &&
+                    ((root.y() <= child.y()) && (child.y() + child.height() <= root.y() + root.height()));
+            else return false;
         }
     }
 }
