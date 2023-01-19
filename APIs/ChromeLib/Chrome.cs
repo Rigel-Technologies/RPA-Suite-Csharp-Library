@@ -128,10 +128,43 @@ namespace ChromeLib
         {
             const int delay = 30;
             var cartes = new CartesObj();
-            RPAWin32Component chmNoticeTranslateClose = null;
+
+            void NeverSavePassword(RPAWin32Component chmPswSvNever, RPAWin32Component chmPswSvNo)
+            {
+                try
+                {
+                    bool lbnExit = false;
+                    do
+                    {
+                        if (IsAborting) lbnExit = true;
+                        else if (chmPswSvNever.ComponentExist() && StringIn(chmPswSvNever.name(), "Nunca"))
+                        {
+                            chmPswSvNever.click();
+                            cartes.reset(chmPswSvNever);
+                            Thread.Sleep(250);
+                        }
+                        else if (chmPswSvNo.ComponentExist() && StringIn(chmPswSvNo.name(), "No, gracias"))
+                        {
+                            chmPswSvNo.click();
+                            cartes.reset(chmPswSvNo);
+                            Thread.Sleep(250);
+                        }
+                        else lbnExit = true;
+                    } while (!lbnExit);
+                }
+                catch (Exception e)
+                {
+                    forensic("ProcessBackGroundTask.NeverSavePassword", e);
+                    throw;
+                }
+            }
+
+            RPAWin32Component chmNoticeTranslateClose = null, chmPswNever = null, chmPswNo = null;
             DateTime timereset = DateTime.Now.AddSeconds(delay);
 
             chmNoticeTranslateClose = cartes.GetComponent<RPAWin32Component>("$ChromeNoticeTranslateClose");
+            chmPswNever = cartes.GetComponent<RPAWin32Component>("$ChromePSWSaveNever");
+            chmPswNo = cartes.GetComponent<RPAWin32Component>("$ChromePSWSaveNo");
             while (fTh != null)
             {
                 try
@@ -158,6 +191,7 @@ namespace ChromeLib
                                 SelectCertificate(cartes, Certificate);
                             if (chmNoticeTranslateClose.ComponentExist() && StringIn(chmNoticeTranslateClose.name(), "cerrar", "close"))
                                 chmNoticeTranslateClose.click();
+                            else NeverSavePassword(chmPswNever, chmPswNo);
                         }
                         finally
                         {
@@ -266,25 +300,6 @@ namespace ChromeLib
         protected virtual bool CheckProxy(CartesObj cartes) /* If the window to set the proxy credentials is visible, this method fills the form
             with the "ProxyPassword" credentials and returns true. Otherwise, it returns false. */
         {
-            void NeverSavePassword(RPAWin32Component chmSvPsw)
-            {
-                try
-                {
-                    while (chmSvPsw.ComponentExist(3) && StringIn(chmSvPsw.name(), "Nunca"))
-                    {
-                        CheckAbort();
-                        chmSvPsw.click();
-                        cartes.reset(chmSvPsw);
-                        Thread.Sleep(250);
-                    }
-                }
-                catch (Exception e)
-                {
-                    forensic("Chrome.NeverSavePassword", e);
-                    throw;
-                }
-            }
-
             bool result = false;
             try
             {
@@ -307,7 +322,6 @@ namespace ChromeLib
                             ProxyPassword.Write(chmProxyPsw);
                             chmProxyAceptar.click();
                             cartes.reset(chmProxy);
-                            NeverSavePassword(cartes.GetComponent<RPAWin32Component>("$ChromeSavePSW"));
                             result = true;
                             Thread.Sleep(250);
                         }
@@ -320,7 +334,7 @@ namespace ChromeLib
             }
             catch (Exception e)
             {
-                forensic("ProcessBackGroundButtons.CheckProxy", e);
+                forensic("Chrome.CheckProxy", e);
                 throw;
             }
             return result;
