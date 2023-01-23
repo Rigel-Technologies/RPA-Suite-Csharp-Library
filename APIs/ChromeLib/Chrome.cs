@@ -137,13 +137,13 @@ namespace ChromeLib
                     do
                     {
                         if (IsAborting) lbnExit = true;
-                        else if (chmPswSvNever.ComponentExist() && StringIn(chmPswSvNever.name(), "Nunca"))
+                        else if (chmPswSvNever.ComponentExist() && StringIn(chmPswSvNever.name(), "Nunca", "No, gracias"))
                         {
                             chmPswSvNever.click();
                             cartes.reset(chmPswSvNever);
                             Thread.Sleep(250);
                         }
-                        else if (chmPswSvNo.ComponentExist() && StringIn(chmPswSvNo.name(), "No, gracias"))
+                        else if (chmPswSvNo.ComponentExist() && StringIn(chmPswSvNo.name(), "No, gracias", "Nunca"))
                         {
                             chmPswSvNo.click();
                             cartes.reset(chmPswSvNo);
