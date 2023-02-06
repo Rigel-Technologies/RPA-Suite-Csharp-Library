@@ -1,12 +1,7 @@
 ﻿using Cartes;
 using ChromeLib;
-using IExplorerLib;
 using RPABaseAPI;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml;
 
 namespace Miscellaneous
@@ -14,12 +9,10 @@ namespace Miscellaneous
     class SampleMiscellaneous : MyCartesProcessBase
     {
         private Chrome fChrome;
-        private IExplorer fIExplorer;
 
         public SampleMiscellaneous() : base()
         {
             fChrome = null;
-            fIExplorer = null;
         }
 
         protected override string getNeededRPASuiteVersion()
@@ -36,14 +29,12 @@ namespace Miscellaneous
         protected override void DoExecute(ref DateTime start)
         {
             Chrome GBrowser = Chrome;
-            IExplorer MBrowser = IExplorer;
-            RPAWin32Component crmlogo = GetComponent<RPAWin32Component>("$ChrmRigelLogo");
+            RPAWin32Component crmlogo = GetComponent<RPAWin32Component>("$ChrmRPALogo");
 
             LoopForever = true;
             GBrowser.Incognito = false;
-            GBrowser.OpenURL("www.rigeltechnologies.net", crmlogo);
-            MBrowser.OpenURL("www.rigeltechnologies.net", "$IExplrRigelLogo");
-            Balloon("Browsers are already open");
+            GBrowser.OpenURL("www.roboticprocessautomation.net", crmlogo);
+            Balloon("Browser is already open");
             WaitFor(5);
         }
         protected Chrome GetChrome()
@@ -63,31 +54,10 @@ namespace Miscellaneous
             }
             return fChrome;
         }
-        protected IExplorer GetIExplorer()
-        {
-            if (fIExplorer == null)
-            {
-                CR.WaitOne();
-                try
-                {
-                    if (fIExplorer == null)
-                        fIExplorer = new IExplorer(this);
-                }
-                finally
-                {
-                    CR.ReleaseMutex();
-                }
-            }
-            return fIExplorer;
-        }
 
         public Chrome Chrome
         {
             get { return GetChrome(); }
-        }
-        public IExplorer IExplorer
-        {
-            get { return GetIExplorer(); }
         }
     }
 }

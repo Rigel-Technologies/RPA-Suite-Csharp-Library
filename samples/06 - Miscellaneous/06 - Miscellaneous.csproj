@@ -79,10 +79,6 @@
       <Project>{1f84c91f-9e88-45cc-bb34-23903a4899c6}</Project>
       <Name>ChromeLib</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\APIs\IExplorerLib\IExplorerLib.csproj">
-      <Project>{653265fc-a964-4460-945c-d9aba67b138a}</Project>
-      <Name>IExplorerLib</Name>
-    </ProjectReference>
     <ProjectReference Include="..\..\RPABaseAPI\RPABaseAPI.csproj">
       <Project>{90F0F94D-0FAF-4C00-B91B-2985DC868735}</Project>
       <Name>RPABaseAPI</Name>

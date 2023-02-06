@@ -15,7 +15,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 
 //////////////////////
-// 2022/07/06
+// 2023/01/15
 //////////////////////
 
 namespace MiTools
@@ -120,7 +120,7 @@ namespace MiTools
         }
         protected virtual string getNeededRPASuiteVersion() // It returns a string with the version of RPA Suite needed by this library
         {
-            return "3.4.2.1";
+            return "3.4.3.0";
         }
         protected virtual void CheckRPASuiteVersion() // It checks if the current version and needed are OK
         {
