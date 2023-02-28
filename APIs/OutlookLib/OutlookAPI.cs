@@ -2,6 +2,7 @@
 using MiTools;
 using RPABaseAPI;
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Outlook = Microsoft.Office.Interop.Outlook;
@@ -358,10 +359,13 @@ namespace OutlookLib
             resultado = true;
             if ((folder != null) && (processor != null)) try
                 {
-                    i = folder.Items.Count; // It is very important to start with the last email. If the email is deleted, the count would be lost going forward.
+                    Outlook.Items emails = folder.Items;
+
+                    emails.Sort("[SentOn],[ReceivedTime]", true);
+                    i = emails.Count; // It is very important to start with the last email. If the email is deleted, the count would be lost going forward.
                     while ((0 < i) && resultado && !IsAborting && (Command != SwarmCommand.finish))
                     {
-                        dynamic item = folder.Items[i];
+                        dynamic item = emails[i];
                         if (item is Outlook.MailItem mail)
                             resultado = processor(mail);
                         else if (item is Outlook.ReportItem report)
